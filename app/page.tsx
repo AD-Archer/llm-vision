@@ -1,13 +1,14 @@
+"use client";
+
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import ChartRenderer from "./components/ChartRenderer";
-import type { ChartType, InsightResponse, QueryRequestBody } from "./types";
-import { normalizeInsight, type NormalizedInsight } from "./utils/chartConfig";
-import "./App.css";
+import ChartRenderer from "../components/ChartRenderer";
+import type { ChartType, InsightResponse, QueryRequestBody } from "../types";
+import { normalizeInsight, type NormalizedInsight } from "../utils/chartConfig";
 
-const DEFAULT_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL ?? "";
+const DEFAULT_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL ?? "";
 const DEFAULT_TIMEOUT_SECONDS = (() => {
-  const envValue = import.meta.env.VITE_WEBHOOK_TIMEOUT_MS;
+  const envValue = process.env.NEXT_PUBLIC_WEBHOOK_TIMEOUT_MS;
   const parsed = Number(envValue);
   if (Number.isFinite(parsed) && parsed > 0) {
     return Math.round(parsed / 1000);
@@ -60,7 +61,7 @@ interface SavedItem {
 
 const SAVED_ITEMS_STORAGE_KEY = "llm-visi-saved-items";
 
-const App = () => {
+export default function Home() {
   const [question, setQuestion] = useState("");
   const [chartType, setChartType] = useState<ChartType>("auto");
   const [webhookUrl, setWebhookUrl] = useState(DEFAULT_WEBHOOK_URL);
@@ -296,7 +297,8 @@ const App = () => {
                   disabled={disabled}
                 />
                 <small>
-                  Leave blank to use `VITE_N8N_WEBHOOK_URL`. Request body:{" "}
+                  Leave blank to use `NEXT_PUBLIC_N8N_WEBHOOK_URL`. Request
+                  body:{" "}
                   <code>{"{ question, chartType, sessionId, chatInput }"}</code>
                 </small>
               </div>
@@ -353,9 +355,7 @@ const App = () => {
 
           <div className="actions">
             <button type="submit" disabled={disabled}>
-              {fetchState === "loading"
-                ? "Contacting webhook…"
-                : "Run workflow"}
+              {disabled ? "Contacting webhook…" : "Run workflow"}
             </button>
             {errorMessage ? (
               <p className="error" role="alert">
@@ -487,6 +487,4 @@ const App = () => {
       )}
     </div>
   );
-};
-
-export default App;
+}

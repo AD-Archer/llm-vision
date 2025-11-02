@@ -29,14 +29,14 @@ This project is a lightweight dashboard that talks to an n8n RAG workflow via we
    Create a `.env` file in the root directory:
 
    ```bash
-   touch .env
+   touch .env.local
    ```
 
    Add your n8n webhook URL and optional timeout:
 
    ```env
-   VITE_N8N_WEBHOOK_URL=https://your-instance.n8n.cloud/webhook/your-webhook-id
-   VITE_WEBHOOK_TIMEOUT_MS=30000
+   NEXT_PUBLIC_N8N_WEBHOOK_URL=https://your-instance.n8n.cloud/webhook/your-webhook-id
+   NEXT_PUBLIC_WEBHOOK_TIMEOUT_MS=30000
    ```
 
 ## Setup n8n Workflow
@@ -71,7 +71,7 @@ npm run dev
 pnpm dev
 ```
 
-The dev server runs at http://localhost:5173 by default.
+The development server runs at http://localhost:3000 by default.
 
 ## Configure the webhook
 
@@ -170,38 +170,39 @@ You can force a specific chart type by returning `chart.type` or by selecting an
 
 ## Project layout
 
-- `src/App.tsx` — main UI: request form, response handling, and visualization.
-- `src/utils/chartConfig.ts` — normalizes raw webhook responses and infers chart configs.
-- `src/components/ChartRenderer.tsx` — renders the appropriate Recharts component.
-- `src/sampleData.ts` — demo payload used by the "Load demo insight" button.
-- `workflow.json` — n8n workflow configuration for RAG and AI processing.
-- `.env` — environment variables (webhook URL, timeout settings).
-
-## Workflow Overview
-
-The included n8n workflow provides:
-
-- **RAG (Retrieval-Augmented Generation)**: Processes documents from Google Drive
-- **AI Agent**: Uses Google Gemini for intelligent responses
-- **Vector Storage**: Qdrant for document embeddings and retrieval
-- **File Processing**: Supports PDF, Excel, and Google Docs files
-- **Memory**: Maintains conversation context across requests
-
-### Required Credentials
-
-1. **Google Drive OAuth2 API**: Access to Google Drive files
-2. **Google Gemini API**: AI chat and text embeddings
-3. **Qdrant API**: Vector database for document storage
+- `app/` — Next.js App Router pages and layouts
+  - `page.tsx` — Main dashboard page
+  - `layout.tsx` — Root layout component
+  - `globals.css` — Global styles
+- `components/` — Reusable React components
+  - `ChartRenderer.tsx` — Chart rendering component
+- `utils/` — Utility functions
+  - `chartConfig.ts` — Chart configuration and normalization
+- `types.ts` — TypeScript type definitions
+- `sampleData.ts` — Demo data for testing
+- `workflow.json` — n8n workflow configuration
+- `next.config.js` — Next.js configuration
 
 ## Deployment
 
-Build the static bundle with:
+### Vercel (Recommended)
+
+1. Push your code to GitHub
+2. Connect your repository to Vercel
+3. Add environment variables in Vercel dashboard:
+   - `NEXT_PUBLIC_N8N_WEBHOOK_URL`
+   - `NEXT_PUBLIC_WEBHOOK_TIMEOUT_MS`
+4. Deploy
+
+### Other Platforms
+
+Build the static site with:
 
 ```bash
 npm run build
 ```
 
-Then deploy the contents of `dist/` to any static host (Vercel, Netlify, S3, etc.).
+Then deploy the contents of `.next/` to any static host or server that supports Next.js.
 
 ## Troubleshooting
 
@@ -221,8 +222,8 @@ npm run dev
 # Build for production
 npm run build
 
-# Preview production build
-npm run preview
+# Start production server
+npm run start
 
 # Lint code
 npm run lint
