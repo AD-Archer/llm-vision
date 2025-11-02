@@ -237,254 +237,338 @@ export default function Home() {
   }, [result]);
 
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <div>
-          <h1>LLM Visualization Dashboard</h1>
-          <p className="subtitle">
-            Ask your RAG workflow for insights, let it choose how to visualize
-            the answer, or override the chart yourself.
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <header className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            LLM Visualization Dashboard
+          </h1>
+          <p className="text-lg text-gray-600">
+            Ask your RAG workflow for insights and visualize the answers
           </p>
-        </div>
-      </header>
+        </header>
 
-      <section className="panel">
-        <form className="query-form" onSubmit={handleSubmit}>
-          <div className="field-group">
-            <label htmlFor="question">Ask a question</label>
-            <textarea
-              id="question"
-              placeholder="e.g. Show me weekly active users vs signups"
-              value={question}
-              onChange={(event) => setQuestion(event.target.value)}
-              required
-              disabled={disabled}
-              rows={3}
-            />
-          </div>
-
-          <div className="field-row">
-            <div className="field-group">
-              <label htmlFor="chartType">Preferred chart</label>
-              <select
-                id="chartType"
-                value={chartType}
-                onChange={(event) =>
-                  setChartType(event.target.value as ChartType)
-                }
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            <div>
+              <label
+                htmlFor="question"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                Ask a question
+              </label>
+              <textarea
+                id="question"
+                placeholder="e.g. Show me weekly active users vs signups"
+                value={question}
+                onChange={(event) => setQuestion(event.target.value)}
+                required
                 disabled={disabled}
-              >
-                {chartTypeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                rows={3}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              />
             </div>
-          </div>
 
-          <details className="developer-tools">
-            <summary>Developer Tools</summary>
-            <div className="developer-fields">
-              <div className="field-group">
-                <label htmlFor="webhook">n8n webhook URL</label>
-                <input
-                  id="webhook"
-                  type="url"
-                  placeholder="https://example.n8n.cloud/webhook/demo"
-                  value={webhookUrl}
-                  onChange={(event) => setWebhookUrl(event.target.value)}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label
+                  htmlFor="chartType"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  Preferred chart
+                </label>
+                <select
+                  id="chartType"
+                  value={chartType}
+                  onChange={(event) =>
+                    setChartType(event.target.value as ChartType)
+                  }
                   disabled={disabled}
-                />
-                <small>
-                  Leave blank to use `NEXT_PUBLIC_N8N_WEBHOOK_URL`. Request
-                  body:{" "}
-                  <code>{"{ question, chartType, sessionId, chatInput }"}</code>
-                </small>
-              </div>
-
-              <div className="field-group">
-                <label htmlFor="timeout">Request timeout (seconds)</label>
-                <input
-                  id="timeout"
-                  type="number"
-                  min={5}
-                  max={600}
-                  step={5}
-                  value={timeoutSeconds}
-                  onChange={(event) => {
-                    const nextValue = Number(event.target.value);
-                    if (Number.isFinite(nextValue)) {
-                      setTimeoutSeconds(Math.max(5, Math.min(600, nextValue)));
-                    }
-                  }}
-                  disabled={disabled}
-                />
-                <small>
-                  Increase if your workflow takes longer to respond. Current
-                  wait: {timeoutSeconds} s
-                </small>
-              </div>
-
-              <div className="field-group">
-                <label htmlFor="sessionId">Session ID</label>
-                <div className="inline-input">
-                  <input
-                    id="sessionId"
-                    type="text"
-                    value={sessionId}
-                    onChange={(event) => setSessionId(event.target.value)}
-                    disabled={disabled}
-                    placeholder="session-123"
-                  />
-                  <button
-                    type="button"
-                    className="ghost-button inline"
-                    onClick={handleSessionReset}
-                    disabled={disabled}
-                  >
-                    New ID
-                  </button>
-                </div>
-                <small>
-                  Persisted locally so your AI memory stays in sync.
-                </small>
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {chartTypeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
-          </details>
 
-          <div className="actions">
-            <button type="submit" disabled={disabled}>
-              {disabled ? "Contacting webhook…" : "Run workflow"}
-            </button>
-            {errorMessage ? (
-              <p className="error" role="alert">
-                {errorMessage}
-              </p>
-            ) : null}
-          </div>
-        </form>
-      </section>
-
-      <section className="panel">
-        {fetchState === "idle" && (
-          <p className="placeholder">Run a workflow to visualize data.</p>
-        )}
-        {fetchState === "loading" && <p className="placeholder">Loading…</p>}
-        {fetchState === "success" && result ? (
-          <div className="results">
-            <div className="insight">
-              {resultMeta?.title ? <h2>{resultMeta.title}</h2> : null}
-              {result.insightText ? (
-                <p className="insight-text">{result.insightText}</p>
-              ) : null}
-              {resultMeta?.description ? (
-                <p className="insight-description">{resultMeta.description}</p>
-              ) : null}
-            </div>
-
-            {result.chart ? (
-              <ChartRenderer config={result.chart} />
-            ) : (
-              <div className="placeholder">
-                <p>The workflow response did not include chartable data.</p>
-                <p>
-                  Ensure your AI returns the JSON schema described in the
-                  README, including <code>chart.data</code> with numeric series.
-                </p>
-              </div>
-            )}
-
-            <div className="result-actions">
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={handleSaveChart}
-              >
-                Save this chart
-              </button>
-            </div>
-
-            <details
-              open={showRaw}
-              onToggle={(event) =>
-                setShowRaw((event.target as HTMLDetailsElement).open)
-              }
-            >
-              <summary>
-                {showRaw ? "Hide raw JSON preview" : "Show raw JSON preview"}
+            <details className="bg-gray-50 rounded-lg p-4">
+              <summary className="cursor-pointer font-medium text-gray-700 hover:text-blue-600">
+                Developer Tools
               </summary>
-              <pre className="raw-json">
-                {JSON.stringify(result.raw, null, 2)}
-              </pre>
-            </details>
-
-            <form className="followup-form" onSubmit={handleSubmit}>
-              <div className="field-group">
-                <label htmlFor="followup">Ask a follow-up question</label>
-                <textarea
-                  id="followup"
-                  placeholder="e.g. Show me the same data by region"
-                  value={followUpQuestion}
-                  onChange={(event) => setFollowUpQuestion(event.target.value)}
-                  disabled={disabled}
-                  rows={2}
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={disabled || !followUpQuestion.trim()}
-              >
-                {disabled ? "Loading…" : "Ask follow-up"}
-              </button>
-            </form>
-          </div>
-        ) : null}
-        {fetchState === "error" && !errorMessage && (
-          <p className="placeholder">Something went wrong. Try again.</p>
-        )}
-      </section>
-
-      {savedItems.length > 0 && (
-        <section className="panel">
-          <h2>Saved Charts</h2>
-          <div className="saved-items">
-            {savedItems.map((item) => (
-              <div key={item.id} className="saved-item">
-                <div className="saved-item-content">
-                  <h3>{item.result.chart?.meta?.title || "Untitled"}</h3>
-                  <p className="saved-item-question">{item.question}</p>
-                  <p className="saved-item-date">
-                    {new Date(item.timestamp).toLocaleDateString()} at{" "}
-                    {new Date(item.timestamp).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+              <div className="mt-4 space-y-4">
+                <div>
+                  <label
+                    htmlFor="webhook"
+                    className="block text-sm font-medium text-gray-700 mb-2"
+                  >
+                    n8n webhook URL
+                  </label>
+                  <input
+                    id="webhook"
+                    type="url"
+                    placeholder="https://example.n8n.cloud/webhook/demo"
+                    value={webhookUrl}
+                    onChange={(event) => setWebhookUrl(event.target.value)}
+                    disabled={disabled}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Leave blank to use `NEXT_PUBLIC_N8N_WEBHOOK_URL`. Request
+                    body:{" "}
+                    <code className="bg-gray-100 px-2 py-1 rounded text-xs">
+                      {"{ question, chartType, sessionId, chatInput }"}
+                    </code>
                   </p>
                 </div>
-                <div className="saved-item-actions">
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    onClick={() => handleLoadSavedItem(item)}
-                    disabled={disabled}
+
+                <div>
+                  <label
+                    htmlFor="timeout"
+                    className="block text-sm font-medium text-gray-700 mb-2"
                   >
-                    Load
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost-button danger"
-                    onClick={() => handleDeleteSavedItem(item.id)}
+                    Request timeout (seconds)
+                  </label>
+                  <input
+                    id="timeout"
+                    type="number"
+                    min={5}
+                    max={600}
+                    step={5}
+                    value={timeoutSeconds}
+                    onChange={(event) => {
+                      const nextValue = Number(event.target.value);
+                      if (Number.isFinite(nextValue)) {
+                        setTimeoutSeconds(
+                          Math.max(5, Math.min(600, nextValue))
+                        );
+                      }
+                    }}
                     disabled={disabled}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Increase if your workflow takes longer to respond. Current
+                    wait: {timeoutSeconds}s
+                  </p>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="sessionId"
+                    className="block text-sm font-medium text-gray-700 mb-2"
                   >
-                    Delete
-                  </button>
+                    Session ID
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      id="sessionId"
+                      type="text"
+                      value={sessionId}
+                      onChange={(event) => setSessionId(event.target.value)}
+                      disabled={disabled}
+                      placeholder="session-123"
+                      className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <button
+                      type="button"
+                      className="px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+                      onClick={handleSessionReset}
+                      disabled={disabled}
+                    >
+                      New ID
+                    </button>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Persisted locally so your AI memory stays in sync.
+                  </p>
                 </div>
               </div>
-            ))}
+            </details>
+
+            <div className="flex justify-center">
+              <button
+                type="submit"
+                disabled={disabled}
+                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-purple-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                {disabled ? "Contacting webhook…" : "Run workflow"}
+              </button>
+            </div>
+            {errorMessage ? (
+              <div className="text-center">
+                <p
+                  className="text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3"
+                  role="alert"
+                >
+                  {errorMessage}
+                </p>
+              </div>
+            ) : null}
+          </form>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+          {fetchState === "idle" && (
+            <div className="text-center py-12">
+              <p className="text-gray-500">Run a workflow to visualize data.</p>
+            </div>
+          )}
+          {fetchState === "loading" && (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-500">Loading…</p>
+            </div>
+          )}
+          {fetchState === "success" && result ? (
+            <div className="space-y-6">
+              <div>
+                {resultMeta?.title ? (
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                    {resultMeta.title}
+                  </h2>
+                ) : null}
+                {result.insightText ? (
+                  <p className="text-gray-700 mb-4">{result.insightText}</p>
+                ) : null}
+                {resultMeta?.description ? (
+                  <p className="text-gray-600">{resultMeta.description}</p>
+                ) : null}
+              </div>
+
+              {result.chart ? (
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <ChartRenderer config={result.chart} />
+                </div>
+              ) : (
+                <div className="text-center py-8 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-yellow-800 mb-2">
+                    The workflow response did not include chartable data.
+                  </p>
+                  <p className="text-yellow-700 text-sm">
+                    Ensure your AI returns the JSON schema described in the
+                    README, including{" "}
+                    <code className="bg-yellow-100 px-2 py-1 rounded text-xs">
+                      chart.data
+                    </code>{" "}
+                    with numeric series.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={handleSaveChart}
+                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors"
+                >
+                  Save this chart
+                </button>
+              </div>
+
+              <details className="bg-gray-50 rounded-lg p-4">
+                <summary className="cursor-pointer font-medium text-gray-700 hover:text-blue-600">
+                  {showRaw ? "Hide raw JSON preview" : "Show raw JSON preview"}
+                </summary>
+                <pre className="mt-4 bg-gray-900 text-green-400 p-4 rounded-lg overflow-auto text-sm">
+                  {JSON.stringify(result.raw, null, 2)}
+                </pre>
+              </details>
+
+              <div className="border-t pt-6">
+                <form className="space-y-4" onSubmit={handleSubmit}>
+                  <div>
+                    <label
+                      htmlFor="followup"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
+                      Ask a follow-up question
+                    </label>
+                    <textarea
+                      id="followup"
+                      placeholder="e.g. Show me the same data by region"
+                      value={followUpQuestion}
+                      onChange={(event) =>
+                        setFollowUpQuestion(event.target.value)
+                      }
+                      disabled={disabled}
+                      rows={2}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    />
+                  </div>
+                  <div className="flex justify-center">
+                    <button
+                      type="submit"
+                      disabled={disabled || !followUpQuestion.trim()}
+                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {disabled ? "Loading…" : "Ask follow-up"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          ) : null}
+          {fetchState === "error" && !errorMessage && (
+            <div className="text-center py-12">
+              <p className="text-gray-500">Something went wrong. Try again.</p>
+            </div>
+          )}
+        </div>
+
+        {savedItems.length > 0 && (
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+              Saved Charts
+            </h2>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {savedItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                >
+                  <div className="mb-3">
+                    <h3 className="font-semibold text-gray-900 mb-1">
+                      {item.result.chart?.meta?.title || "Untitled"}
+                    </h3>
+                    <p className="text-gray-600 text-sm mb-2">
+                      {item.question}
+                    </p>
+                    <p className="text-gray-500 text-xs">
+                      {new Date(item.timestamp).toLocaleDateString()} at{" "}
+                      {new Date(item.timestamp).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleLoadSavedItem(item)}
+                      disabled={disabled}
+                      className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 transition-colors"
+                    >
+                      Load
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteSavedItem(item.id)}
+                      disabled={disabled}
+                      className="px-3 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        </section>
-      )}
+        )}
+      </div>
     </div>
   );
 }

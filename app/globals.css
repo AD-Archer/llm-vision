@@ -1,1 +1,11 @@
-@import "./App.css";
+@import "tailwindcss";
+
+@layer base {
+  * {
+    border-color: rgb(229 231 235);
+  }
+  body {
+    background-color: rgb(255 255 255);
+    color: rgb(17 24 39);
+  }
+}
