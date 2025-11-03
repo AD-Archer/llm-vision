@@ -2,18 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { ProtectedRoute } from "../../components/ProtectedRoute";
-import ChartRenderer from "../../components/ChartRenderer";
-import type { NormalizedInsight } from "../../utils/chartConfig";
-
-interface SavedQuery {
-  id: string;
-  question: string;
-  result: NormalizedInsight;
-  createdAt: number;
-  updatedAt: number;
-  isFavorite: boolean;
-  visualizationName?: string;
-}
+import { QueriesHeader } from "./components/QueriesHeader";
+import { QueryControls } from "./components/QueryControls";
+import { QueriesList, type SavedQuery } from "./components/QueriesList";
+import { QueryDetailsView } from "./components/QueryDetailsView";
 
 export default function QueriesPage() {
   const [savedQueries, setSavedQueries] = useState<SavedQuery[]>([]);
@@ -130,310 +122,71 @@ export default function QueriesPage() {
     <ProtectedRoute>
       <div className="min-h-screen bg-slate-900">
         <div className="max-w-7xl mx-auto py-4 sm:py-8 px-3 sm:px-4">
-          {/* Header */}
-          <div className="mb-6 sm:mb-8">
-            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1 sm:mb-2">
-              Saved Queries
-            </h1>
-            <p className="text-sm sm:text-base text-slate-400">
-              View and manage your saved analysis queries
-            </p>
-          </div>
-
-          {/* Controls */}
-          <div className="flex flex-col md:flex-row gap-4 mb-6">
-            <input
-              type="text"
-              placeholder="Search queries..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1 px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            />
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as "recent" | "oldest")}
-              className="px-3 sm:px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="recent">Most Recent</option>
-              <option value="oldest">Oldest First</option>
-            </select>
-            {savedQueries.length > 0 && (
-              <button
-                onClick={handleClearAll}
-                className="px-3 sm:px-4 py-2 bg-red-900/20 hover:bg-red-900/30 text-red-400 border border-red-700 rounded-lg transition-colors text-sm"
-              >
-                Clear All
-              </button>
-            )}
-          </div>
+          <QueriesHeader />
+          <QueryControls
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            sortBy={sortBy}
+            onSortChange={setSortBy}
+            onClearAll={handleClearAll}
+            hasQueries={savedQueries.length > 0}
+          />
 
           {/* Main Content */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
             {/* Queries List */}
             <div className="lg:col-span-1">
-              <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
-                {filteredQueries.length === 0 ? (
-                  <div className="p-6 sm:p-8 text-center">
-                    <div className="text-3xl sm:text-4xl mb-3">📭</div>
-                    <p className="text-slate-400 text-sm sm:text-base">
-                      {savedQueries.length === 0
-                        ? "No saved queries yet. Start by asking questions in the dashboard!"
-                        : "No queries match your search."}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="max-h-[600px] overflow-y-auto">
-                    {filteredQueries.map((query) => (
-                      <button
-                        key={query.id}
-                        onClick={() => setSelectedQuery(query)}
-                        className={`w-full text-left p-4 border-b border-slate-700 hover:bg-slate-700 transition-colors ${
-                          selectedQuery?.id === query.id ? "bg-slate-700" : ""
-                        }`}
-                      >
-                        <div className="flex items-start gap-2">
-                          {query.isFavorite && (
-                            <span className="text-yellow-400 flex-shrink-0 mt-0.5">
-                              ★
-                            </span>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-semibold text-white line-clamp-2">
-                              {query.visualizationName ||
-                                query.result.chart?.meta?.visualizationName ||
-                                "Untitled"}
-                            </p>
-                            <p className="text-xs text-slate-400 mt-1 line-clamp-1 overflow-hidden text-ellipsis">
-                              {query.question}
-                            </p>
-                            <p className="text-xs text-slate-500 mt-1">
-                              Updated {formatDate(query.updatedAt)}
-                            </p>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <QueriesList
+                queries={filteredQueries}
+                selectedQuery={selectedQuery}
+                onSelectQuery={setSelectedQuery}
+                formatDate={formatDate}
+              />
             </div>
 
             {/* Query Details */}
             <div className="lg:col-span-2">
-              {selectedQuery ? (
-                <div className="bg-slate-800 rounded-lg border border-slate-700 p-4 sm:p-6">
-                  {/* Question */}
-                  <div className="mb-4 sm:mb-6">
-                    <h2 className="text-lg sm:text-xl font-semibold text-white mb-2">
-                      Query
-                    </h2>
-                    <p className="text-slate-300 p-3 sm:p-4 bg-slate-900 rounded-lg text-sm sm:text-base">
-                      {selectedQuery.question}
-                    </p>
-                  </div>
-
-                  {/* Metadata */}
-                  <div className="mb-4 sm:mb-6">
-                    <h3 className="text-xs sm:text-sm font-medium text-slate-300 mb-3">
-                      Details
-                    </h3>
-                    <div className="grid grid-cols-2 gap-2 sm:gap-4">
-                      <div className="bg-slate-900 p-2 sm:p-3 rounded-lg">
-                        <p className="text-xs text-slate-400">Created</p>
-                        <p className="text-xs sm:text-sm text-white mt-1">
-                          {formatDate(selectedQuery.createdAt)}
-                        </p>
-                      </div>
-                      <div className="bg-slate-900 p-2 sm:p-3 rounded-lg">
-                        <p className="text-xs text-slate-400">Last Updated</p>
-                        <p className="text-xs sm:text-sm text-white mt-1">
-                          {formatDate(selectedQuery.updatedAt)}
-                        </p>
-                      </div>
-                      <div className="bg-slate-900 p-2 sm:p-3 rounded-lg">
-                        <p className="text-xs text-slate-400">Chart Type</p>
-                        <p className="text-xs sm:text-sm text-white mt-1 capitalize">
-                          {selectedQuery.result.chart?.type || "Unknown"}
-                        </p>
-                      </div>
-                      <div className="bg-slate-900 p-2 sm:p-3 rounded-lg">
-                        <p className="text-xs text-slate-400">Status</p>
-                        <p className="text-xs sm:text-sm text-white mt-1">
-                          {selectedQuery.isFavorite ? "⭐ Favorite" : "Regular"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Visualization Name */}
-                  <div className="mb-4 sm:mb-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
-                      <h3 className="text-xs sm:text-sm font-medium text-slate-300">
-                        Visualization Name
-                      </h3>
-                      {editingVisualizationName === selectedQuery.id ? (
-                        <button
-                          onClick={() => {
-                            setEditingVisualizationName(null);
-                            setEditingName("");
-                          }}
-                          className="text-xs sm:text-sm text-slate-400 hover:text-slate-200 px-2 py-1"
-                        >
-                          Cancel
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            setEditingVisualizationName(selectedQuery.id);
-                            setEditingName(
-                              selectedQuery.visualizationName ||
-                                selectedQuery.result.chart?.meta
-                                  ?.visualizationName ||
-                                ""
-                            );
-                          }}
-                          className="text-xs sm:text-sm text-blue-400 hover:text-blue-300 px-2 py-1"
-                        >
-                          Edit
-                        </button>
-                      )}
-                    </div>
-                    {editingVisualizationName === selectedQuery.id ? (
-                      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-3">
-                        <input
-                          type="text"
-                          value={editingName}
-                          onChange={(e) => setEditingName(e.target.value)}
-                          placeholder="Enter visualization name..."
-                          className="flex-1 px-3 sm:px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                          autoFocus
-                        />
-                        <button
-                          onClick={() =>
-                            handleUpdateVisualizationName(
-                              selectedQuery.id,
-                              editingName
-                            )
-                          }
-                          disabled={!editingName.trim()}
-                          className="px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Save
-                        </button>
-                      </div>
-                    ) : (
-                      <p className="text-slate-300 p-3 sm:p-4 bg-slate-900 rounded-lg text-xs sm:text-sm mt-3">
-                        {selectedQuery.visualizationName ||
-                          selectedQuery.result.chart?.meta?.visualizationName ||
-                          "No name provided"}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Chart Display */}
-                  {selectedQuery.result.chart && (
-                    <div className="mb-4 sm:mb-6">
-                      <h3 className="text-xs sm:text-sm font-medium text-slate-300 mb-3">
-                        Visualization
-                      </h3>
-                      <div className="bg-slate-900 rounded-lg p-2 sm:p-4 border border-slate-700 overflow-x-auto">
-                        <ChartRenderer config={selectedQuery.result.chart} />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Insight */}
-                  {selectedQuery.result.insightText && (
-                    <div className="mb-4 sm:mb-6">
-                      <h3 className="text-xs sm:text-sm font-medium text-slate-300 mb-3">
-                        Insight
-                      </h3>
-                      <p className="text-slate-300 p-3 sm:p-4 bg-slate-900 rounded-lg text-xs sm:text-sm leading-relaxed">
-                        {selectedQuery.result.insightText}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Data Points */}
-                  {selectedQuery.result.chart?.data &&
-                    selectedQuery.result.chart.data.length > 0 && (
-                      <div className="mb-4 sm:mb-6">
-                        <h3 className="text-xs sm:text-sm font-medium text-slate-300 mb-3">
-                          Data Points ({selectedQuery.result.chart.data.length})
-                        </h3>
-                        <div className="bg-slate-900 rounded-lg p-3 sm:p-4 max-h-[250px] sm:max-h-[300px] overflow-y-auto">
-                          <pre className="text-xs text-slate-300 font-mono whitespace-pre-wrap break-words">
-                            {JSON.stringify(
-                              selectedQuery.result.chart.data.slice(0, 5),
-                              null,
-                              2
-                            )}
-                          </pre>
-                          {selectedQuery.result.chart.data.length > 5 && (
-                            <p className="text-xs text-slate-400 mt-2">
-                              ... and{" "}
-                              {selectedQuery.result.chart.data.length - 5} more
-                              rows
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                  {/* Actions */}
-                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-4 sm:pt-6 border-t border-slate-700">
-                    <button
-                      onClick={() => handleRunQuery(selectedQuery)}
-                      className="flex-1 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-                    >
-                      🔄 Re-run Query
-                    </button>
-                    <button
-                      onClick={() => handleUpdateGraph(selectedQuery)}
-                      disabled={updatingId === selectedQuery.id}
-                      className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
-                    >
-                      ✨ Update with Latest Data
-                    </button>
-                    <button
-                      onClick={() => handleToggleFavorite(selectedQuery.id)}
-                      className={`px-4 py-2 font-medium rounded-lg transition-colors ${
-                        selectedQuery.isFavorite
-                          ? "bg-yellow-600 hover:bg-yellow-700 text-white"
-                          : "bg-slate-700 hover:bg-slate-600 text-slate-200"
-                      }`}
-                    >
-                      {selectedQuery.isFavorite ? "★ Favorite" : "☆ Favorite"}
-                    </button>
-                    <button
-                      onClick={() => {
-                        const text = `${
-                          selectedQuery.question
-                        }\n\n${JSON.stringify(selectedQuery.result, null, 2)}`;
-                        navigator.clipboard.writeText(text);
-                      }}
-                      className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium rounded-lg transition-colors"
-                    >
-                      📋 Copy
-                    </button>
-                    <button
-                      onClick={() => handleDeleteQuery(selectedQuery.id)}
-                      className="px-4 py-2 bg-red-900/20 hover:bg-red-900/30 text-red-400 border border-red-700 font-medium rounded-lg transition-colors"
-                    >
-                      🗑️ Delete
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-slate-800 rounded-lg border border-slate-700 p-12 text-center h-full flex items-center justify-center">
-                  <div>
-                    <div className="text-4xl mb-3">👈</div>
-                    <p className="text-slate-400">
-                      Select a query to view details
-                    </p>
-                  </div>
-                </div>
-              )}
+              <QueryDetailsView
+                query={selectedQuery}
+                isEditingVisualizationName={
+                  editingVisualizationName === selectedQuery?.id
+                }
+                editingName={editingName}
+                isUpdating={updatingId === selectedQuery?.id}
+                onVisualizationEditStart={() => {
+                  if (selectedQuery) {
+                    setEditingVisualizationName(selectedQuery.id);
+                    setEditingName(
+                      selectedQuery.visualizationName ||
+                        selectedQuery.result.chart?.meta?.visualizationName ||
+                        ""
+                    );
+                  }
+                }}
+                onVisualizationEditCancel={() => {
+                  setEditingVisualizationName(null);
+                  setEditingName("");
+                }}
+                onVisualizationEditChange={setEditingName}
+                onVisualizationEditSave={(newName) => {
+                  if (selectedQuery) {
+                    handleUpdateVisualizationName(selectedQuery.id, newName);
+                  }
+                }}
+                onRerun={handleRunQuery}
+                onUpdate={handleUpdateGraph}
+                onToggleFavorite={handleToggleFavorite}
+                onCopy={(query) => {
+                  const text = `${query.question}\n\n${JSON.stringify(
+                    query.result,
+                    null,
+                    2
+                  )}`;
+                  navigator.clipboard.writeText(text);
+                }}
+                onDelete={handleDeleteQuery}
+                formatDate={formatDate}
+              />
             </div>
           </div>
         </div>

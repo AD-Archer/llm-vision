@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-// @ts-ignore - allow side-effect CSS import without a type declaration
+// @ts-expect-error - side-effect CSS import
 import "./globals.css";
 import { AuthProvider } from "../context/AuthContext";
 import { SettingsProvider } from "../context/SettingsContext";

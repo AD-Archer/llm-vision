@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useAdmin } from "../context/AdminContext";
 import { UserStats, UserFeatures } from "../types";
-import { Icon } from "./Icon";
 
 export function AdminPanel() {
   const {
@@ -21,7 +20,11 @@ export function AdminPanel() {
     "overview" | "users" | "invitations"
   >("overview");
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
-  const [newInvitation, setNewInvitation] = useState<any>(null);
+  const [newInvitation, setNewInvitation] = useState<{
+    code: string;
+    createdAt: string;
+    expiresAt: string;
+  } | null>(null);
   const [showInviteForm, setShowInviteForm] = useState(false);
 
   const handleGenerateInvite = async () => {
@@ -331,7 +334,10 @@ function UserCard({
     customWebhooksEnabled: true,
   });
 
-  const handleFeatureChange = (key: keyof UserFeatures, value: any) => {
+  const handleFeatureChange = (
+    key: keyof UserFeatures,
+    value: string | boolean | number
+  ) => {
     const updated = { ...features, [key]: value };
     setFeatures(updated);
     onUpdateFeatures(user.id, updated);

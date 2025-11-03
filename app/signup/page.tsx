@@ -4,7 +4,14 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
 import { useAdmin } from "../../context/AdminContext";
-import Link from "next/link";
+import {
+  SignupHeader,
+  ProgressSteps,
+  InvitationCodeForm,
+  AccountDetailsForm,
+  SignupCard,
+  SignupFooter,
+} from "./components";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
@@ -15,7 +22,7 @@ export default function SignupPage() {
   const [step, setStep] = useState<"code" | "details">("code");
   const [isCodeValid, setIsCodeValid] = useState(false);
   const { login, isAuthenticated } = useAuth();
-  const { useInvitationCode } = useAdmin();
+  const { useInvitationCode: verifyInvitationCode } = useAdmin();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -78,7 +85,7 @@ export default function SignupPage() {
       }
 
       // Verify invitation code
-      const isValid = await useInvitationCode(
+      const isValid = await verifyInvitationCode(
         invitationCode.toUpperCase(),
         email
       );
@@ -106,188 +113,42 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 px-3 sm:px-4">
       <div className="w-full max-w-md">
-        {/* Logo/Header */}
-        <div className="text-center mb-6 sm:mb-8">
-          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-1 sm:mb-2">
-            LLM Visi<span className="text-blue-500">on</span>
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-400">
-            Join our invite-only platform
-          </p>
-        </div>
+        <SignupHeader />
 
-        {/* Signup Card */}
-        <div className="bg-slate-800 rounded-lg shadow-2xl p-4 sm:p-6 md:p-8 border border-slate-700">
-          {/* Progress Steps */}
-          <div className="flex gap-2 mb-6 sm:mb-8">
-            <div
-              className={`flex-1 h-1.5 rounded-full transition-colors ${
-                step === "code"
-                  ? "bg-blue-600"
-                  : isCodeValid
-                  ? "bg-green-600"
-                  : "bg-slate-700"
-              }`}
-            />
-            <div
-              className={`flex-1 h-1.5 rounded-full transition-colors ${
-                step === "details" ? "bg-blue-600" : "bg-slate-700"
-              }`}
-            />
-          </div>
+        <SignupCard>
+          <ProgressSteps step={step} isCodeValid={isCodeValid} />
 
           {step === "code" ? (
-            <form
+            <InvitationCodeForm
+              invitationCode={invitationCode}
+              error={error}
+              isLoading={isLoading}
+              onCodeChange={(code) => {
+                setInvitationCode(code);
+                if (code.length === 8) {
+                  validateCode(code);
+                }
+              }}
               onSubmit={handleCodeSubmit}
-              className="space-y-4 sm:space-y-6"
-            >
-              <div>
-                <h2 className="text-lg sm:text-xl font-semibold text-white mb-2">
-                  Enter Invitation Code
-                </h2>
-                <p className="text-xs sm:text-sm text-slate-400 mb-4">
-                  You should have received an 8-character code from your admin
-                </p>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="code"
-                  className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5 sm:mb-2"
-                >
-                  Invitation Code
-                </label>
-                <input
-                  id="code"
-                  type="text"
-                  value={invitationCode}
-                  onChange={(e) => {
-                    const code = e.target.value.toUpperCase().slice(0, 8);
-                    setInvitationCode(code);
-                    if (code.length === 8) {
-                      validateCode(code);
-                    }
-                  }}
-                  placeholder="XXXXXXXX"
-                  disabled={isLoading}
-                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-xs sm:text-sm text-white placeholder-slate-400 uppercase tracking-widest text-center font-mono focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
-                  required
-                  maxLength={8}
-                />
-              </div>
-
-              {error && (
-                <div className="p-2.5 sm:p-3 bg-red-900/20 border border-red-700 rounded-lg text-xs sm:text-sm text-red-400">
-                  {error}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={isLoading || invitationCode.length !== 8}
-                className="w-full py-2 sm:py-2.5 px-3 sm:px-4 bg-blue-600 hover:bg-blue-700 text-xs sm:text-sm text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Continue
-              </button>
-
-              <div className="text-center">
-                <p className="text-xs sm:text-sm text-slate-400">
-                  Already have an account?{" "}
-                  <Link
-                    href="/login"
-                    className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
-                  >
-                    Login here
-                  </Link>
-                </p>
-              </div>
-            </form>
+            />
           ) : (
-            <form onSubmit={handleSignup} className="space-y-4 sm:space-y-6">
-              <div>
-                <h2 className="text-lg sm:text-xl font-semibold text-white mb-2">
-                  Create Your Account
-                </h2>
-                <p className="text-xs sm:text-sm text-slate-400 mb-4">
-                  Set up your login credentials
-                </p>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="email"
-                  className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5 sm:mb-2"
-                >
-                  Email Address
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  disabled={isLoading}
-                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
-                  required
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="password"
-                  className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5 sm:mb-2"
-                >
-                  Password
-                </label>
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  disabled={isLoading}
-                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
-                  required
-                />
-                <p className="text-xs text-slate-400 mt-1">
-                  At least 6 characters
-                </p>
-              </div>
-
-              {error && (
-                <div className="p-2.5 sm:p-3 bg-red-900/20 border border-red-700 rounded-lg text-xs sm:text-sm text-red-400">
-                  {error}
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStep("code");
-                    setError(null);
-                  }}
-                  disabled={isLoading}
-                  className="flex-1 py-2 sm:py-2.5 px-3 sm:px-4 bg-slate-700 hover:bg-slate-600 text-xs sm:text-sm text-slate-200 font-medium rounded-lg transition-colors disabled:opacity-50"
-                >
-                  Back
-                </button>
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="flex-1 py-2 sm:py-2.5 px-3 sm:px-4 bg-blue-600 hover:bg-blue-700 text-xs sm:text-sm text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isLoading ? "Creating account..." : "Sign Up"}
-                </button>
-              </div>
-            </form>
+            <AccountDetailsForm
+              email={email}
+              password={password}
+              error={error}
+              isLoading={isLoading}
+              onEmailChange={setEmail}
+              onPasswordChange={setPassword}
+              onBack={() => {
+                setStep("code");
+                setError(null);
+              }}
+              onSubmit={handleSignup}
+            />
           )}
-        </div>
+        </SignupCard>
 
-        {/* Footer */}
-        <p className="text-center text-slate-400 text-xs sm:text-sm mt-4 sm:mt-6">
-          Built with Next.js & Recharts
-        </p>
+        <SignupFooter />
       </div>
     </div>
   );
