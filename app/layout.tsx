@@ -1,5 +1,4 @@
-import type { Metadata } from "next";
-// @ts-expect-error - side-effect CSS import
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "../context/AuthContext";
 import { SettingsProvider } from "../context/SettingsContext";
@@ -10,6 +9,13 @@ export const metadata: Metadata = {
   title: "LLM Visualization Dashboard",
   description:
     "Dashboard for visualizing and managing LLM-powered RAG workflows for LaunchPad Philly",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
 };
 
 export default function RootLayout({
