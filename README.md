@@ -107,10 +107,11 @@ Respond with this structure:
     "type": "auto" | "bar" | "line" | "area" | "pie" | "scatter",
     "xKey": string,
     "yKeys": string[],
-    "meta"?: {
+    "meta": {
       "title"?: string,
       "description"?: string,
-      "valueKey"?: string
+      "valueKey"?: string,
+      "visualizationName": string
     },
     "data": Array<Record<string, string | number | boolean | null>>
   },
@@ -118,6 +119,7 @@ Respond with this structure:
 }
 
 Guidelines:
+- Always include a descriptive `visualizationName` (e.g., "Monthly Revenue Trend", "Customer Distribution by Region").
 - Always include at least three rows in `chart.data` when possible.
 - Pick `chart.type` that best fits the data; use "auto" to let the UI decide.
 - Use ISO date strings or concise categorical labels for the `xKey`.

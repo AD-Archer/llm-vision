@@ -54,6 +54,7 @@ interface SavedItem {
   createdAt: number;
   updatedAt: number;
   isFavorite: boolean;
+  visualizationName?: string;
 }
 
 const SAVED_ITEMS_STORAGE_KEY = "llm-visi-saved-items";
@@ -119,6 +120,29 @@ function DashboardContent() {
     );
   }, [savedItems]);
 
+  // Auto-save successful results if enabled
+  useEffect(() => {
+    if (
+      !result ||
+      fetchState !== "success" ||
+      !settings.autoSaveQueries ||
+      !question.trim()
+    ) {
+      return;
+    }
+
+    // Check if this result is already saved (to avoid duplicates on mount)
+    const alreadySaved = savedItems.some(
+      (item) =>
+        item.question === question &&
+        item.result.insightText === result.insightText
+    );
+
+    if (!alreadySaved) {
+      handleSaveChart();
+    }
+  }, [result, fetchState, settings.autoSaveQueries, question, savedItems]);
+
   const handleSessionReset = () => {
     setSessionId(createSessionId());
   };
@@ -137,6 +161,7 @@ function DashboardContent() {
                 result,
                 question,
                 updatedAt: now,
+                visualizationName: result.chart?.meta?.visualizationName,
               }
             : item
         )
@@ -151,6 +176,7 @@ function DashboardContent() {
         createdAt: now,
         updatedAt: now,
         isFavorite: false,
+        visualizationName: result.chart?.meta?.visualizationName,
       };
       setSavedItems((prev) => [newItem, ...prev]);
     }
@@ -516,10 +542,13 @@ function DashboardContent() {
                   className="bg-slate-700 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors"
                 >
                   <div className="mb-3">
-                    <h3 className="font-semibold text-white mb-1">
-                      {item.result.chart?.meta?.title || "Untitled"}
+                    <h3 className="font-semibold text-white mb-1 line-clamp-2">
+                      {item.visualizationName ||
+                        item.result.chart?.meta?.visualizationName ||
+                        item.result.chart?.meta?.title ||
+                        "Untitled"}
                     </h3>
-                    <p className="text-slate-300 text-sm mb-2 line-clamp-2">
+                    <p className="text-slate-300 text-xs mb-2 line-clamp-1 overflow-hidden text-ellipsis">
                       {item.question}
                     </p>
                     <p className="text-slate-400 text-xs">
@@ -535,7 +564,7 @@ function DashboardContent() {
                       type="button"
                       onClick={() => handleLoadSavedItem(item)}
                       disabled={disabled}
-                      className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors disabled:opacity-50"
+                      className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors disabled:opacity-50 truncate"
                     >
                       Load
                     </button>

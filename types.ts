@@ -1,7 +1,7 @@
-export type ChartType = 'auto' | 'bar' | 'line' | 'area' | 'pie' | 'scatter';
+export type ChartType = "auto" | "bar" | "line" | "area" | "pie" | "scatter";
 
 export interface ChartConfig {
-  type: Exclude<ChartType, 'auto'>;
+  type: Exclude<ChartType, "auto">;
   data: Array<Record<string, unknown>>;
   xKey: string;
   yKeys: string[];
@@ -9,6 +9,7 @@ export interface ChartConfig {
     title?: string;
     description?: string;
     valueKey?: string;
+    visualizationName?: string;
   };
 }
 

@@ -12,6 +12,7 @@ interface SavedQuery {
   createdAt: number;
   updatedAt: number;
   isFavorite: boolean;
+  visualizationName?: string;
 }
 
 export default function QueriesPage() {
@@ -20,6 +21,10 @@ export default function QueriesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState<"recent" | "oldest">("recent");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [editingVisualizationName, setEditingVisualizationName] = useState<
+    string | null
+  >(null);
+  const [editingName, setEditingName] = useState("");
 
   useEffect(() => {
     const stored = localStorage.getItem("llm-visi-saved-items");
@@ -53,6 +58,22 @@ export default function QueriesPage() {
         isFavorite: !selectedQuery.isFavorite,
       });
     }
+  };
+
+  const handleUpdateVisualizationName = (id: string, newName: string) => {
+    const updated = savedQueries.map((q) =>
+      q.id === id ? { ...q, visualizationName: newName } : q
+    );
+    setSavedQueries(updated);
+    localStorage.setItem("llm-visi-saved-items", JSON.stringify(updated));
+    if (selectedQuery?.id === id) {
+      setSelectedQuery({
+        ...selectedQuery,
+        visualizationName: newName,
+      });
+    }
+    setEditingVisualizationName(null);
+    setEditingName("");
   };
 
   const handleUpdateGraph = async (query: SavedQuery) => {
@@ -170,15 +191,26 @@ export default function QueriesPage() {
                           selectedQuery?.id === query.id ? "bg-slate-700" : ""
                         }`}
                       >
-                        <p className="text-sm font-medium text-white line-clamp-2 flex items-center gap-2">
+                        <div className="flex items-start gap-2">
                           {query.isFavorite && (
-                            <span className="text-yellow-400">★</span>
+                            <span className="text-yellow-400 flex-shrink-0 mt-0.5">
+                              ★
+                            </span>
                           )}
-                          {query.question}
-                        </p>
-                        <p className="text-xs text-slate-400 mt-2">
-                          Updated {formatDate(query.updatedAt)}
-                        </p>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-white line-clamp-2">
+                              {query.visualizationName ||
+                                query.result.chart?.meta?.visualizationName ||
+                                "Untitled"}
+                            </p>
+                            <p className="text-xs text-slate-400 mt-1 line-clamp-1 overflow-hidden text-ellipsis">
+                              {query.question}
+                            </p>
+                            <p className="text-xs text-slate-500 mt-1">
+                              Updated {formatDate(query.updatedAt)}
+                            </p>
+                          </div>
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -231,6 +263,71 @@ export default function QueriesPage() {
                         </p>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Visualization Name */}
+                  <div className="mb-4 sm:mb-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+                      <h3 className="text-xs sm:text-sm font-medium text-slate-300">
+                        Visualization Name
+                      </h3>
+                      {editingVisualizationName === selectedQuery.id ? (
+                        <button
+                          onClick={() => {
+                            setEditingVisualizationName(null);
+                            setEditingName("");
+                          }}
+                          className="text-xs sm:text-sm text-slate-400 hover:text-slate-200 px-2 py-1"
+                        >
+                          Cancel
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setEditingVisualizationName(selectedQuery.id);
+                            setEditingName(
+                              selectedQuery.visualizationName ||
+                                selectedQuery.result.chart?.meta
+                                  ?.visualizationName ||
+                                ""
+                            );
+                          }}
+                          className="text-xs sm:text-sm text-blue-400 hover:text-blue-300 px-2 py-1"
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </div>
+                    {editingVisualizationName === selectedQuery.id ? (
+                      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-3">
+                        <input
+                          type="text"
+                          value={editingName}
+                          onChange={(e) => setEditingName(e.target.value)}
+                          placeholder="Enter visualization name..."
+                          className="flex-1 px-3 sm:px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                          autoFocus
+                        />
+                        <button
+                          onClick={() =>
+                            handleUpdateVisualizationName(
+                              selectedQuery.id,
+                              editingName
+                            )
+                          }
+                          disabled={!editingName.trim()}
+                          className="px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-slate-300 p-3 sm:p-4 bg-slate-900 rounded-lg text-xs sm:text-sm mt-3">
+                        {selectedQuery.visualizationName ||
+                          selectedQuery.result.chart?.meta?.visualizationName ||
+                          "No name provided"}
+                      </p>
+                    )}
                   </div>
 
                   {/* Chart Display */}

@@ -1,9 +1,14 @@
-import type { ChartConfig, ChartType, InsightResponse } from '../types';
+import type { ChartConfig, ChartType, InsightResponse } from "../types";
 
 type Primitive = string | number | boolean | null;
 
-const isRecordArray = (value: unknown): value is Array<Record<string, Primitive>> =>
-  Array.isArray(value) && value.every((item) => item && typeof item === 'object' && !Array.isArray(item));
+const isRecordArray = (
+  value: unknown
+): value is Array<Record<string, Primitive>> =>
+  Array.isArray(value) &&
+  value.every(
+    (item) => item && typeof item === "object" && !Array.isArray(item)
+  );
 
 const asRecordArray = (value: unknown): Array<Record<string, Primitive>> => {
   if (!isRecordArray(value)) {
@@ -14,9 +19,11 @@ const asRecordArray = (value: unknown): Array<Record<string, Primitive>> => {
 };
 
 const asString = (value: unknown): string | undefined =>
-  typeof value === 'string' && value.trim().length ? value : undefined;
+  typeof value === "string" && value.trim().length ? value : undefined;
 
-const pickData = (...candidates: unknown[]): Array<Record<string, Primitive>> => {
+const pickData = (
+  ...candidates: unknown[]
+): Array<Record<string, Primitive>> => {
   for (const candidate of candidates) {
     const data = asRecordArray(candidate);
     if (data.length) return data;
@@ -26,8 +33,8 @@ const pickData = (...candidates: unknown[]): Array<Record<string, Primitive>> =>
 
 const sanitizeJsonString = (value: string) => {
   const trimmed = value.trim();
-  if (!trimmed) return '';
-  if (trimmed.startsWith('```')) {
+  if (!trimmed) return "";
+  if (trimmed.startsWith("```")) {
     const match = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
     if (match?.[1]) {
       return match[1];
@@ -37,7 +44,7 @@ const sanitizeJsonString = (value: string) => {
 };
 
 const parseJsonString = (value: unknown): unknown => {
-  if (typeof value !== 'string') return undefined;
+  if (typeof value !== "string") return undefined;
   const sanitized = sanitizeJsonString(value);
   if (!sanitized) return undefined;
   try {
@@ -48,7 +55,7 @@ const parseJsonString = (value: unknown): unknown => {
 };
 
 const isLikelyDate = (value: Primitive) => {
-  if (typeof value !== 'string') return false;
+  if (typeof value !== "string") return false;
   if (!value) return false;
   const maybeDate = Date.parse(value);
   return Number.isFinite(maybeDate);
@@ -62,11 +69,12 @@ const chooseXKey = (data: Array<Record<string, Primitive>>) => {
   sample.forEach((item) => {
     Object.entries(item).forEach(([key, value]) => {
       let score = keyScores[key] ?? 0;
-      if (typeof value === 'string') score += 2;
-      if (typeof value === 'string' && value.length <= 40) score += 1;
+      if (typeof value === "string") score += 2;
+      if (typeof value === "string" && value.length <= 40) score += 1;
       if (isLikelyDate(value)) score += 3;
-      if (typeof value === 'number') score -= 1;
-      if (key.toLowerCase().match(/(date|time|category|label|name|x)/)) score += 2;
+      if (typeof value === "number") score -= 1;
+      if (key.toLowerCase().match(/(date|time|category|label|name|x)/))
+        score += 2;
       keyScores[key] = score;
     });
   });
@@ -75,7 +83,10 @@ const chooseXKey = (data: Array<Record<string, Primitive>>) => {
   return sorted[0]?.[0];
 };
 
-const chooseYKeys = (data: Array<Record<string, Primitive>>, exclude?: string) => {
+const chooseYKeys = (
+  data: Array<Record<string, Primitive>>,
+  exclude?: string
+) => {
   if (!data.length) return [];
   const keyScores: Record<string, number> = {};
   const sample = data.slice(0, 5);
@@ -83,7 +94,7 @@ const chooseYKeys = (data: Array<Record<string, Primitive>>, exclude?: string) =
   sample.forEach((item) => {
     Object.entries(item).forEach(([key, value]) => {
       if (key === exclude) return;
-      if (typeof value === 'number') {
+      if (typeof value === "number") {
         const score = keyScores[key] ?? 0;
         keyScores[key] = score + 2;
         if (key.toLowerCase().match(/(value|amount|total|count|score|y)/)) {
@@ -98,16 +109,20 @@ const chooseYKeys = (data: Array<Record<string, Primitive>>, exclude?: string) =
     .map(([key]) => key);
 };
 
-const inferChartType = (data: Array<Record<string, Primitive>>, yKeyCount: number, fallback: ChartType): ChartType => {
+const inferChartType = (
+  data: Array<Record<string, Primitive>>,
+  yKeyCount: number,
+  fallback: ChartType
+): ChartType => {
   if (!data.length || !yKeyCount) return fallback;
-  if (yKeyCount === 1 && data.length <= 6) return 'pie';
-  if (yKeyCount > 1) return 'area';
+  if (yKeyCount === 1 && data.length <= 6) return "pie";
+  if (yKeyCount > 1) return "area";
 
   const firstRow = data[0];
   const xValue = firstRow && Object.values(firstRow)[0];
-  if (isLikelyDate(xValue)) return 'line';
+  if (isLikelyDate(xValue)) return "line";
 
-  return fallback === 'auto' ? 'bar' : fallback;
+  return fallback === "auto" ? "bar" : fallback;
 };
 
 export interface NormalizedInsight {
@@ -116,27 +131,38 @@ export interface NormalizedInsight {
   chart?: ChartConfig;
 }
 
-export const normalizeInsight = (response: InsightResponse): NormalizedInsight => {
-  const parsedOutput = parseJsonString((response as { output?: unknown }).output);
+export const normalizeInsight = (
+  response: InsightResponse
+): NormalizedInsight => {
+  const parsedOutput = parseJsonString(
+    (response as { output?: unknown }).output
+  );
   const mergedResponse =
-    parsedOutput && typeof parsedOutput === 'object' && !Array.isArray(parsedOutput)
-      ? ({ ...response, ...(parsedOutput as Record<string, unknown>) } as InsightResponse)
+    parsedOutput &&
+    typeof parsedOutput === "object" &&
+    !Array.isArray(parsedOutput)
+      ? ({
+          ...response,
+          ...(parsedOutput as Record<string, unknown>),
+        } as InsightResponse)
       : response;
 
   const insightText =
     asString(mergedResponse.insight) ??
     asString((mergedResponse as { summary?: unknown }).summary) ??
     asString((response as { output?: unknown }).output) ??
-    '';
+    "";
 
   const chartData = pickData(
     mergedResponse.chart?.data,
     mergedResponse.data,
     (mergedResponse as { results?: unknown }).results,
-    parsedOutput && Array.isArray(parsedOutput) ? (parsedOutput as Array<Record<string, Primitive>>) : undefined,
+    parsedOutput && Array.isArray(parsedOutput)
+      ? (parsedOutput as Array<Record<string, Primitive>>)
+      : undefined
   );
 
-  const providedType = mergedResponse.chart?.type ?? 'auto';
+  const providedType = mergedResponse.chart?.type ?? "auto";
   const providedXKey = mergedResponse.chart?.xKey;
   const providedYKeys = mergedResponse.chart?.yKeys;
 
@@ -150,17 +176,28 @@ export const normalizeInsight = (response: InsightResponse): NormalizedInsight =
     return { raw: response, insightText };
   }
 
-  const type = (providedType === 'auto' ? inferChartType(chartData, yKeys.length, providedType) : providedType) as ChartType;
+  const type = (
+    providedType === "auto"
+      ? inferChartType(chartData, yKeys.length, providedType)
+      : providedType
+  ) as ChartType;
 
   const chart: ChartConfig = {
-    type: type === 'auto' ? 'bar' : type,
+    type: type === "auto" ? "bar" : type,
     data: chartData,
     xKey,
     yKeys,
     meta: {
-      title: asString(mergedResponse.chart?.meta?.title) ?? asString((mergedResponse as { title?: unknown }).title),
+      title:
+        asString(mergedResponse.chart?.meta?.title) ??
+        asString((mergedResponse as { title?: unknown }).title),
       description: asString(mergedResponse.chart?.meta?.description),
       valueKey: asString(mergedResponse.chart?.meta?.valueKey),
+      visualizationName:
+        asString(mergedResponse.chart?.meta?.visualizationName) ??
+        asString(
+          (mergedResponse as { visualizationName?: unknown }).visualizationName
+        ),
     },
   };
 
