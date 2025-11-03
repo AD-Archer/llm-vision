@@ -3,11 +3,13 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "../context/AuthContext";
 import { SettingsProvider } from "../context/SettingsContext";
+import { AdminProvider } from "../context/AdminContext";
 import { Navbar } from "../components/Navbar";
 
 export const metadata: Metadata = {
   title: "LLM Visualization Dashboard",
-  description: "Dashboard for visualizing and managing LLM-powered RAG workflows for LaunchPad Philly",
+  description:
+    "Dashboard for visualizing and managing LLM-powered RAG workflows for LaunchPad Philly",
 };
 
 export default function RootLayout({
@@ -20,8 +22,10 @@ export default function RootLayout({
       <body>
         <AuthProvider>
           <SettingsProvider>
-            <Navbar />
-            {children}
+            <AdminProvider>
+              <Navbar />
+              {children}
+            </AdminProvider>
           </SettingsProvider>
         </AuthProvider>
       </body>

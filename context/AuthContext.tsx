@@ -12,6 +12,8 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  role: "admin" | "user";
+  queryCount?: number;
 }
 
 export interface AuthContextType {
@@ -20,6 +22,7 @@ export interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
+  isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -52,10 +55,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         throw new Error("Email and password are required");
       }
 
+      // Determine if user is admin (in production, this would come from backend)
+      // For demo purposes: emails containing "admin" are admins
+      const isAdmin = email.toLowerCase().includes("admin");
+
       const newUser: User = {
         id: `user-${Date.now()}`,
         email,
         name: email.split("@")[0],
+        role: isAdmin ? "admin" : "user",
+        queryCount: 0,
       };
 
       setUser(newUser);
@@ -76,6 +85,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     login,
     logout,
     isAuthenticated: !!user,
+    isAdmin: user?.role === "admin",
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

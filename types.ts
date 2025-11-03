@@ -27,3 +27,31 @@ export interface QueryRequestBody {
   chatInput?: string;
   [key: string]: unknown;
 }
+
+// Admin and User Management Types
+export interface UserStats {
+  id: string;
+  email: string;
+  name: string;
+  queryCount: number;
+  createdAt: string;
+  lastActive: string;
+  status: "active" | "inactive" | "invited";
+  invitationSentAt?: string;
+}
+
+export interface UserFeatures {
+  userId: string;
+  maxQueriesPerDay: number;
+  apiAccessEnabled: boolean;
+  advancedChartsEnabled: boolean;
+  customWebhooksEnabled: boolean;
+}
+
+export interface InvitationCode {
+  code: string;
+  createdAt: string;
+  expiresAt: string;
+  usedBy?: string;
+  usedAt?: string;
+}

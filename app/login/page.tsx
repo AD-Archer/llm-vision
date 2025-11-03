@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
 import Link from "next/link";
@@ -13,11 +13,12 @@ export default function LoginPage() {
   const { login, isAuthenticated } = useAuth();
   const router = useRouter();
 
-  // Redirect if already authenticated
-  if (isAuthenticated) {
-    router.push("/dashboard");
-    return null;
-  }
+  // Use useEffect for redirect to avoid setState during render
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push("/dashboard");
+    }
+  }, [isAuthenticated, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +34,11 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
+
+  // Show nothing while redirecting
+  if (isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 px-3 sm:px-4">
@@ -116,6 +122,19 @@ export default function LoginPage() {
                 🔐 <span className="font-mono text-xs">password123</span>
               </p>
             </div>
+          </div>
+
+          {/* Sign Up Link */}
+          <div className="mt-4 sm:mt-6 text-center">
+            <p className="text-xs sm:text-sm text-slate-400">
+              New to LLM Vision?{" "}
+              <Link
+                href="/signup"
+                className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
+              >
+                Sign up with an invitation
+              </Link>
+            </p>
           </div>
         </div>
 
