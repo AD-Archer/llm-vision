@@ -7,7 +7,7 @@ import { Navbar } from "../components/Navbar";
 
 export const metadata: Metadata = {
   title: "LLM Visualization Dashboard",
-  description: "Ask your RAG workflow for insights and visualize the answers",
+  description: "Dashboard for visualizing and managing LLM-powered RAG workflows for LaunchPad Philly",
 };
 
 export default function RootLayout({

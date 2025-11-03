@@ -273,20 +273,22 @@ function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <header className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Dashboard</h1>
-          <p className="text-lg text-slate-400">
+      <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
+        <header className="text-center mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-1 sm:mb-2 px-2">
+            Dashboard
+          </h1>
+          <p className="text-sm sm:text-base lg:text-lg text-slate-400 px-2">
             Ask your RAG workflow for insights and visualize the answers
           </p>
         </header>
 
-        <div className="bg-slate-800 rounded-xl border border-slate-700 shadow-lg p-6 mb-6">
-          <form className="space-y-6" onSubmit={handleSubmit}>
+        <div className="bg-slate-800 rounded-lg sm:rounded-xl border border-slate-700 shadow-lg p-4 sm:p-6 mb-4 sm:mb-6">
+          <form className="space-y-4 sm:space-y-6" onSubmit={handleSubmit}>
             <div>
               <label
                 htmlFor="question"
-                className="block text-sm font-medium text-slate-300 mb-2"
+                className="block text-xs sm:text-sm font-medium text-slate-300 mb-2"
               >
                 Ask a question
               </label>
@@ -298,15 +300,15 @@ function DashboardContent() {
                 required
                 disabled={disabled}
                 rows={3}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 text-white placeholder-slate-400 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-slate-700 border border-slate-600 text-white placeholder-slate-400 text-sm rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div>
                 <label
                   htmlFor="chartType"
-                  className="block text-sm font-medium text-slate-300 mb-2"
+                  className="block text-xs sm:text-sm font-medium text-slate-300 mb-2"
                 >
                   Preferred chart
                 </label>
@@ -317,7 +319,7 @@ function DashboardContent() {
                     setChartType(event.target.value as ChartType)
                   }
                   disabled={disabled}
-                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-slate-700 border border-slate-600 text-white text-sm rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   {chartTypeOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -336,7 +338,7 @@ function DashboardContent() {
                 <div>
                   <label
                     htmlFor="sessionId"
-                    className="block text-sm font-medium text-slate-300 mb-2"
+                    className="block text-xs sm:text-sm font-medium text-slate-300 mb-2"
                   >
                     Session ID
                   </label>
@@ -348,11 +350,11 @@ function DashboardContent() {
                       onChange={(event) => setSessionId(event.target.value)}
                       disabled={disabled}
                       placeholder="session-123"
-                      className="flex-1 px-4 py-3 bg-slate-600 border border-slate-500 text-white placeholder-slate-400 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="flex-1 px-3 sm:px-4 py-2 sm:py-3 bg-slate-600 border border-slate-500 text-white placeholder-slate-400 text-sm rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                     <button
                       type="button"
-                      className="px-4 py-3 bg-slate-600 hover:bg-slate-500 text-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                      className="px-3 sm:px-4 py-2 sm:py-3 bg-slate-600 hover:bg-slate-500 text-slate-300 text-sm rounded-lg focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors whitespace-nowrap"
                       onClick={handleSessionReset}
                       disabled={disabled}
                     >
@@ -370,7 +372,7 @@ function DashboardContent() {
               <button
                 type="submit"
                 disabled={disabled || !effectiveUrl}
-                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-lg focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                className="w-full sm:w-auto px-6 sm:px-8 py-2.5 sm:py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white text-sm sm:text-base font-medium rounded-lg focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 {disabled ? "Contacting webhook…" : "Run workflow"}
               </button>
@@ -378,7 +380,7 @@ function DashboardContent() {
             {errorMessage ? (
               <div className="text-center">
                 <p
-                  className="text-red-400 bg-red-900/20 border border-red-700 rounded-lg px-4 py-3"
+                  className="text-red-400 bg-red-900/20 border border-red-700 rounded-lg px-3 sm:px-4 py-2 sm:py-3 text-sm"
                   role="alert"
                 >
                   {errorMessage}
@@ -397,37 +399,41 @@ function DashboardContent() {
             </div>
           )}
           {fetchState === "loading" && (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-              <p className="text-slate-400">Loading…</p>
+            <div className="text-center py-8 sm:py-12">
+              <div className="animate-spin rounded-full h-10 sm:h-12 w-10 sm:w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+              <p className="text-slate-400 text-sm sm:text-base">Loading…</p>
             </div>
           )}
           {fetchState === "success" && result ? (
-            <div className="space-y-6">
-              <div>
+            <div className="space-y-4 sm:space-y-6">
+              <div className="px-2 sm:px-0">
                 {resultMeta?.title ? (
-                  <h2 className="text-2xl font-bold text-white mb-2">
+                  <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">
                     {resultMeta.title}
                   </h2>
                 ) : null}
                 {result.insightText ? (
-                  <p className="text-slate-300 mb-4">{result.insightText}</p>
+                  <p className="text-slate-300 mb-4 text-sm sm:text-base">
+                    {result.insightText}
+                  </p>
                 ) : null}
                 {resultMeta?.description ? (
-                  <p className="text-slate-400">{resultMeta.description}</p>
+                  <p className="text-slate-400 text-sm sm:text-base">
+                    {resultMeta.description}
+                  </p>
                 ) : null}
               </div>
 
               {result.chart ? (
-                <div className="bg-slate-900 rounded-lg p-4 border border-slate-700">
+                <div className="bg-slate-900 rounded-lg p-2 sm:p-4 border border-slate-700 overflow-x-auto">
                   <ChartRenderer config={result.chart} />
                 </div>
               ) : (
-                <div className="text-center py-8 bg-yellow-900/20 border border-yellow-700 rounded-lg">
-                  <p className="text-yellow-400 mb-2">
+                <div className="text-center py-6 sm:py-8 bg-yellow-900/20 border border-yellow-700 rounded-lg px-3 sm:px-0">
+                  <p className="text-yellow-400 mb-2 text-sm sm:text-base">
                     The workflow response did not include chartable data.
                   </p>
-                  <p className="text-yellow-500 text-sm">
+                  <p className="text-yellow-500 text-xs sm:text-sm">
                     Ensure your AI returns the JSON schema described in the
                     README, including{" "}
                     <code className="bg-yellow-900/30 px-2 py-1 rounded text-xs">
@@ -442,7 +448,7 @@ function DashboardContent() {
                 <button
                   type="button"
                   onClick={handleSaveChart}
-                  className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors"
+                  className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-green-600 hover:bg-green-700 text-white text-sm sm:text-base rounded-lg focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors"
                 >
                   {updatingQueryId ? "✨ Update Query" : "💾 Save this query"}
                 </button>

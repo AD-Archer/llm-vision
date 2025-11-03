@@ -108,13 +108,13 @@ export default function QueriesPage() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-slate-900">
-        <div className="max-w-7xl mx-auto py-8 px-4">
+        <div className="max-w-7xl mx-auto py-4 sm:py-8 px-3 sm:px-4">
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1 sm:mb-2">
               Saved Queries
             </h1>
-            <p className="text-slate-400">
+            <p className="text-sm sm:text-base text-slate-400">
               View and manage your saved analysis queries
             </p>
           </div>
@@ -131,7 +131,7 @@ export default function QueriesPage() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as "recent" | "oldest")}
-              className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className="px-3 sm:px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             >
               <option value="recent">Most Recent</option>
               <option value="oldest">Oldest First</option>
@@ -139,7 +139,7 @@ export default function QueriesPage() {
             {savedQueries.length > 0 && (
               <button
                 onClick={handleClearAll}
-                className="px-4 py-2 bg-red-900/20 hover:bg-red-900/30 text-red-400 border border-red-700 rounded-lg transition-colors"
+                className="px-3 sm:px-4 py-2 bg-red-900/20 hover:bg-red-900/30 text-red-400 border border-red-700 rounded-lg transition-colors text-sm"
               >
                 Clear All
               </button>
@@ -147,14 +147,14 @@ export default function QueriesPage() {
           </div>
 
           {/* Main Content */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
             {/* Queries List */}
             <div className="lg:col-span-1">
               <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
                 {filteredQueries.length === 0 ? (
-                  <div className="p-8 text-center">
-                    <div className="text-4xl mb-3">📭</div>
-                    <p className="text-slate-400">
+                  <div className="p-6 sm:p-8 text-center">
+                    <div className="text-3xl sm:text-4xl mb-3">📭</div>
+                    <p className="text-slate-400 text-sm sm:text-base">
                       {savedQueries.length === 0
                         ? "No saved queries yet. Start by asking questions in the dashboard!"
                         : "No queries match your search."}
@@ -189,44 +189,44 @@ export default function QueriesPage() {
             {/* Query Details */}
             <div className="lg:col-span-2">
               {selectedQuery ? (
-                <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
+                <div className="bg-slate-800 rounded-lg border border-slate-700 p-4 sm:p-6">
                   {/* Question */}
-                  <div className="mb-6">
-                    <h2 className="text-xl font-semibold text-white mb-2">
+                  <div className="mb-4 sm:mb-6">
+                    <h2 className="text-lg sm:text-xl font-semibold text-white mb-2">
                       Query
                     </h2>
-                    <p className="text-slate-300 p-4 bg-slate-900 rounded-lg">
+                    <p className="text-slate-300 p-3 sm:p-4 bg-slate-900 rounded-lg text-sm sm:text-base">
                       {selectedQuery.question}
                     </p>
                   </div>
 
                   {/* Metadata */}
-                  <div className="mb-6">
-                    <h3 className="text-sm font-medium text-slate-300 mb-3">
+                  <div className="mb-4 sm:mb-6">
+                    <h3 className="text-xs sm:text-sm font-medium text-slate-300 mb-3">
                       Details
                     </h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-slate-900 p-3 rounded-lg">
+                    <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                      <div className="bg-slate-900 p-2 sm:p-3 rounded-lg">
                         <p className="text-xs text-slate-400">Created</p>
-                        <p className="text-sm text-white mt-1">
+                        <p className="text-xs sm:text-sm text-white mt-1">
                           {formatDate(selectedQuery.createdAt)}
                         </p>
                       </div>
-                      <div className="bg-slate-900 p-3 rounded-lg">
+                      <div className="bg-slate-900 p-2 sm:p-3 rounded-lg">
                         <p className="text-xs text-slate-400">Last Updated</p>
-                        <p className="text-sm text-white mt-1">
+                        <p className="text-xs sm:text-sm text-white mt-1">
                           {formatDate(selectedQuery.updatedAt)}
                         </p>
                       </div>
-                      <div className="bg-slate-900 p-3 rounded-lg">
+                      <div className="bg-slate-900 p-2 sm:p-3 rounded-lg">
                         <p className="text-xs text-slate-400">Chart Type</p>
-                        <p className="text-sm text-white mt-1 capitalize">
+                        <p className="text-xs sm:text-sm text-white mt-1 capitalize">
                           {selectedQuery.result.chart?.type || "Unknown"}
                         </p>
                       </div>
-                      <div className="bg-slate-900 p-3 rounded-lg">
+                      <div className="bg-slate-900 p-2 sm:p-3 rounded-lg">
                         <p className="text-xs text-slate-400">Status</p>
-                        <p className="text-sm text-white mt-1">
+                        <p className="text-xs sm:text-sm text-white mt-1">
                           {selectedQuery.isFavorite ? "⭐ Favorite" : "Regular"}
                         </p>
                       </div>
@@ -235,11 +235,11 @@ export default function QueriesPage() {
 
                   {/* Chart Display */}
                   {selectedQuery.result.chart && (
-                    <div className="mb-6">
-                      <h3 className="text-sm font-medium text-slate-300 mb-3">
+                    <div className="mb-4 sm:mb-6">
+                      <h3 className="text-xs sm:text-sm font-medium text-slate-300 mb-3">
                         Visualization
                       </h3>
-                      <div className="bg-slate-900 rounded-lg p-4 border border-slate-700">
+                      <div className="bg-slate-900 rounded-lg p-2 sm:p-4 border border-slate-700 overflow-x-auto">
                         <ChartRenderer config={selectedQuery.result.chart} />
                       </div>
                     </div>
@@ -247,11 +247,11 @@ export default function QueriesPage() {
 
                   {/* Insight */}
                   {selectedQuery.result.insightText && (
-                    <div className="mb-6">
-                      <h3 className="text-sm font-medium text-slate-300 mb-3">
+                    <div className="mb-4 sm:mb-6">
+                      <h3 className="text-xs sm:text-sm font-medium text-slate-300 mb-3">
                         Insight
                       </h3>
-                      <p className="text-slate-300 p-4 bg-slate-900 rounded-lg text-sm leading-relaxed">
+                      <p className="text-slate-300 p-3 sm:p-4 bg-slate-900 rounded-lg text-xs sm:text-sm leading-relaxed">
                         {selectedQuery.result.insightText}
                       </p>
                     </div>
@@ -260,11 +260,11 @@ export default function QueriesPage() {
                   {/* Data Points */}
                   {selectedQuery.result.chart?.data &&
                     selectedQuery.result.chart.data.length > 0 && (
-                      <div className="mb-6">
-                        <h3 className="text-sm font-medium text-slate-300 mb-3">
+                      <div className="mb-4 sm:mb-6">
+                        <h3 className="text-xs sm:text-sm font-medium text-slate-300 mb-3">
                           Data Points ({selectedQuery.result.chart.data.length})
                         </h3>
-                        <div className="bg-slate-900 rounded-lg p-4 max-h-[300px] overflow-y-auto">
+                        <div className="bg-slate-900 rounded-lg p-3 sm:p-4 max-h-[250px] sm:max-h-[300px] overflow-y-auto">
                           <pre className="text-xs text-slate-300 font-mono whitespace-pre-wrap break-words">
                             {JSON.stringify(
                               selectedQuery.result.chart.data.slice(0, 5),
@@ -284,10 +284,10 @@ export default function QueriesPage() {
                     )}
 
                   {/* Actions */}
-                  <div className="flex flex-wrap gap-3 pt-6 border-t border-slate-700">
+                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-4 sm:pt-6 border-t border-slate-700">
                     <button
                       onClick={() => handleRunQuery(selectedQuery)}
-                      className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                      className="flex-1 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
                     >
                       🔄 Re-run Query
                     </button>
