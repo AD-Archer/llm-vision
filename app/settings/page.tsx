@@ -16,6 +16,8 @@ function SettingsContent() {
   const [webhookUrl, setWebhookUrl] = useState("");
   const [timeoutSeconds, setTimeoutSeconds] = useState(60);
   const [autoSaveQueries, setAutoSaveQueries] = useState(true);
+  const [webhookUsername, setWebhookUsername] = useState("");
+  const [webhookPassword, setWebhookPassword] = useState("");
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [activeTab, setActiveTab] = useState<"settings" | "admin">(
     isAdmin ? "admin" : "settings"
@@ -25,6 +27,8 @@ function SettingsContent() {
     setWebhookUrl(settings.webhookUrl);
     setTimeoutSeconds(settings.timeoutSeconds);
     setAutoSaveQueries(settings.autoSaveQueries);
+    setWebhookUsername(settings.webhookUsername || "");
+    setWebhookPassword(settings.webhookPassword || "");
   }, [settings]);
 
   const handleSaveSettings = () => {
@@ -32,6 +36,8 @@ function SettingsContent() {
       webhookUrl,
       timeoutSeconds,
       autoSaveQueries,
+      webhookUsername,
+      webhookPassword,
     });
 
     setSaveSuccess(true);
@@ -41,7 +47,9 @@ function SettingsContent() {
   const isModified =
     webhookUrl !== settings.webhookUrl ||
     timeoutSeconds !== settings.timeoutSeconds ||
-    autoSaveQueries !== settings.autoSaveQueries;
+    autoSaveQueries !== settings.autoSaveQueries ||
+    webhookUsername !== (settings.webhookUsername || "") ||
+    webhookPassword !== (settings.webhookPassword || "");
 
   return (
     <ProtectedRoute>
@@ -65,11 +73,17 @@ function SettingsContent() {
               onTimeoutChange={setTimeoutSeconds}
               autoSaveQueries={autoSaveQueries}
               onAutoSaveQueriesChange={setAutoSaveQueries}
+              webhookUsername={webhookUsername}
+              onWebhookUsernameChange={setWebhookUsername}
+              webhookPassword={webhookPassword}
+              onWebhookPasswordChange={setWebhookPassword}
               onSave={handleSaveSettings}
               onReset={() => {
                 setWebhookUrl(settings.webhookUrl);
                 setTimeoutSeconds(settings.timeoutSeconds);
                 setAutoSaveQueries(settings.autoSaveQueries);
+                setWebhookUsername(settings.webhookUsername || "");
+                setWebhookPassword(settings.webhookPassword || "");
               }}
               isModified={isModified}
             />

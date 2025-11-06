@@ -230,9 +230,21 @@ function DashboardContent() {
         timeoutMs,
       });
 
+      // Build Authorization header if credentials are provided
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      if (settings.webhookUsername && settings.webhookPassword) {
+        const credentials = btoa(
+          `${settings.webhookUsername}:${settings.webhookPassword}`
+        );
+        headers["Authorization"] = `Basic ${credentials}`;
+      }
+
       const response = await fetch(effectiveUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(payload),
         signal: controller.signal,
       });

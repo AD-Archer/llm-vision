@@ -15,6 +15,10 @@ interface SettingsFormProps {
   onSave: () => void;
   onReset: () => void;
   isModified: boolean;
+  webhookUsername?: string;
+  onWebhookUsernameChange?: (username: string) => void;
+  webhookPassword?: string;
+  onWebhookPasswordChange?: (password: string) => void;
 }
 
 export function SettingsForm({
@@ -29,6 +33,10 @@ export function SettingsForm({
   onSave,
   onReset,
   isModified,
+  webhookUsername,
+  onWebhookUsernameChange,
+  webhookPassword,
+  onWebhookPasswordChange,
 }: SettingsFormProps) {
   return (
     <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
@@ -38,6 +46,10 @@ export function SettingsForm({
         onWebhookUrlChange={onWebhookUrlChange}
         timeoutSeconds={timeoutSeconds}
         onTimeoutChange={onTimeoutChange}
+        webhookUsername={webhookUsername}
+        onWebhookUsernameChange={onWebhookUsernameChange}
+        webhookPassword={webhookPassword}
+        onWebhookPasswordChange={onWebhookPasswordChange}
       />
       <QuerySettingsSection
         autoSaveQueries={autoSaveQueries}

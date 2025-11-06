@@ -12,6 +12,8 @@ export interface AppSettings {
   webhookUrl: string;
   timeoutSeconds: number;
   autoSaveQueries: boolean;
+  webhookUsername?: string;
+  webhookPassword?: string;
 }
 
 export interface SettingsContextType {
@@ -23,6 +25,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   webhookUrl: process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL ?? "",
   timeoutSeconds: 60,
   autoSaveQueries: true,
+  webhookUsername: process.env.NEXT_PUBLIC_WEBHOOK_USERNAME ?? "",
+  webhookPassword: process.env.NEXT_PUBLIC_WEBHOOK_PASSWORD ?? "",
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(
