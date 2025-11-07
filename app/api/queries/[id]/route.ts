@@ -1,0 +1,79 @@
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { prisma } from "@/lib/prisma";
+
+const UpdateQueryPayload = z.object({
+  visualizationName: z.string().optional(),
+  isFavorite: z.boolean().optional(),
+});
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const body = await request.json();
+    const parsed = UpdateQueryPayload.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid payload", issues: parsed.error.issues },
+        { status: 400 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get("userId");
+
+    if (!userId) {
+      return NextResponse.json({ error: "userId required" }, { status: 400 });
+    }
+
+    const query = await prisma.savedQuery.updateMany({
+      where: { id: params.id, userId },
+      data: parsed.data,
+    });
+
+    if (query.count === 0) {
+      return NextResponse.json({ error: "Query not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Failed to update query:", error);
+    return NextResponse.json(
+      { error: "Failed to update query" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get("userId");
+
+    if (!userId) {
+      return NextResponse.json({ error: "userId required" }, { status: 400 });
+    }
+
+    const query = await prisma.savedQuery.deleteMany({
+      where: { id: params.id, userId },
+    });
+
+    if (query.count === 0) {
+      return NextResponse.json({ error: "Query not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Failed to delete query:", error);
+    return NextResponse.json(
+      { error: "Failed to delete query" },
+      { status: 500 }
+    );
+  }
+}

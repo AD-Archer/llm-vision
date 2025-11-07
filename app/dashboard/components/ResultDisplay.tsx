@@ -11,9 +11,7 @@ interface ResultDisplayProps {
 
 export function ResultDisplay({
   result,
-  onSaveChart,
   showRaw,
-  updatingQueryId,
 }: ResultDisplayProps) {
   const resultMeta = useMemo(() => {
     const meta = result.chart?.meta;
@@ -64,13 +62,6 @@ export function ResultDisplay({
       )}
 
       <div className="flex justify-center">
-        <button
-          type="button"
-          onClick={onSaveChart}
-          className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-green-600 hover:bg-green-700 text-white text-sm sm:text-base rounded-lg focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors"
-        >
-          {updatingQueryId ? "✨ Update Query" : "💾 Save this query"}
-        </button>
       </div>
 
       <details className="bg-slate-700 rounded-lg p-4 border border-slate-600">

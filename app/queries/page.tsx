@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { ProtectedRoute } from "../../components/ProtectedRoute";
+import { useAuth } from "../../context/AuthContext";
+import type { NormalizedInsight } from "../../utils/chartConfig";
 import { QueriesHeader } from "./components/QueriesHeader";
 import { QueryControls } from "./components/QueryControls";
 import { QueriesList, type SavedQuery } from "./components/QueriesList";
 import { QueryDetailsView } from "./components/QueryDetailsView";
 
 export default function QueriesPage() {
+  const { user } = useAuth();
   const [savedQueries, setSavedQueries] = useState<SavedQuery[]>([]);
   const [selectedQuery, setSelectedQuery] = useState<SavedQuery | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -19,31 +22,63 @@ export default function QueriesPage() {
   const [editingName, setEditingName] = useState("");
 
   useEffect(() => {
-    const stored = localStorage.getItem("llm-visi-saved-items");
-    if (stored) {
-      try {
-        setSavedQueries(JSON.parse(stored));
-      } catch (e) {
-        console.error("Failed to parse saved queries", e);
-      }
-    }
-  }, []);
+    if (!user) return;
+    fetch(`/api/queries?userId=${user.id}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to load queries");
+        return res.json();
+      })
+      .then((data) => {
+        const queries: SavedQuery[] = data.map((q: unknown) => {
+          const query = q as {
+            id: string;
+            question: string;
+            result: NormalizedInsight;
+            createdAt: string;
+            updatedAt: string;
+            isFavorite: boolean;
+            visualizationName?: string;
+          };
+          return {
+            id: query.id,
+            question: query.question,
+            result: query.result,
+            createdAt: new Date(query.createdAt).getTime(),
+            updatedAt: new Date(query.updatedAt).getTime(),
+            isFavorite: query.isFavorite,
+            visualizationName: query.visualizationName,
+          };
+        });
+        setSavedQueries(queries);
+      })
+      .catch((e) => console.error("Failed to load saved queries", e));
+  }, [user]);
 
-  const handleDeleteQuery = (id: string) => {
+  const handleDeleteQuery = async (id: string) => {
+    if (!user) return;
+    await fetch(`/api/queries/${id}?userId=${user.id}`, {
+      method: "DELETE",
+    });
     const updated = savedQueries.filter((q) => q.id !== id);
     setSavedQueries(updated);
-    localStorage.setItem("llm-visi-saved-items", JSON.stringify(updated));
     if (selectedQuery?.id === id) {
       setSelectedQuery(null);
     }
   };
 
-  const handleToggleFavorite = (id: string) => {
+  const handleToggleFavorite = async (id: string) => {
+    if (!user) return;
+    const current = savedQueries.find((q) => q.id === id);
+    if (!current) return;
+    await fetch(`/api/queries/${id}?userId=${user.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isFavorite: !current.isFavorite }),
+    });
     const updated = savedQueries.map((q) =>
       q.id === id ? { ...q, isFavorite: !q.isFavorite } : q
     );
     setSavedQueries(updated);
-    localStorage.setItem("llm-visi-saved-items", JSON.stringify(updated));
     if (selectedQuery?.id === id) {
       setSelectedQuery({
         ...selectedQuery,
@@ -52,12 +87,17 @@ export default function QueriesPage() {
     }
   };
 
-  const handleUpdateVisualizationName = (id: string, newName: string) => {
+  const handleUpdateVisualizationName = async (id: string, newName: string) => {
+    if (!user) return;
+    await fetch(`/api/queries/${id}?userId=${user.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ visualizationName: newName }),
+    });
     const updated = savedQueries.map((q) =>
       q.id === id ? { ...q, visualizationName: newName } : q
     );
     setSavedQueries(updated);
-    localStorage.setItem("llm-visi-saved-items", JSON.stringify(updated));
     if (selectedQuery?.id === id) {
       setSelectedQuery({
         ...selectedQuery,
@@ -81,14 +121,22 @@ export default function QueriesPage() {
   };
 
   const handleClearAll = () => {
+    if (!user) return;
     if (
       confirm(
         "Are you sure you want to delete all saved queries? This cannot be undone."
       )
     ) {
-      setSavedQueries([]);
-      localStorage.removeItem("llm-visi-saved-items");
-      setSelectedQuery(null);
+      Promise.all(
+        savedQueries.map((q) =>
+          fetch(`/api/queries/${q.id}?userId=${user.id}`, {
+            method: "DELETE",
+          })
+        )
+      ).then(() => {
+        setSavedQueries([]);
+        setSelectedQuery(null);
+      });
     }
   };
 

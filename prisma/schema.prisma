@@ -25,6 +25,7 @@ model User {
   password  String   // Hashed password
   isAdmin   Boolean  @default(false)
   queryCount Int     @default(0)
+  savedQueries SavedQuery[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -36,4 +37,18 @@ model InvitationCode {
   usedBy    String?
   usedAt    DateTime?
   revoked   Boolean  @default(false)
+}
+
+model SavedQuery {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question         String
+  result           Json
+  visualizationName String?
+  isFavorite       Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("saved_queries")
 }
