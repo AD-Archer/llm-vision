@@ -82,9 +82,9 @@ function DashboardContent() {
   });
 
   const disabled = fetchState === "loading";
-  const webhookUrl = settings.webhookUrl;
+  const webhookUrl = settings.webhookUrl?.trim();
+  const canSubmit = Boolean(webhookUrl);
   const timeoutSeconds = settings.timeoutSeconds;
-  const effectiveUrl = webhookUrl.trim();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -199,7 +199,7 @@ function DashboardContent() {
     event.preventDefault();
     setErrorMessage(null);
 
-    if (!effectiveUrl) {
+    if (!canSubmit) {
       setErrorMessage("Provide an n8n webhook URL in settings.");
       return;
     }
@@ -224,39 +224,28 @@ function DashboardContent() {
     const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      console.info("[n8n] Sending request to webhook", {
-        url: effectiveUrl,
+      console.info("[query] Sending request to internal API", {
         payload,
         timeoutMs,
       });
 
-      // Build Authorization header if credentials are provided
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-
-      if (settings.webhookUsername && settings.webhookPassword) {
-        const credentials = btoa(
-          `${settings.webhookUsername}:${settings.webhookPassword}`
-        );
-        headers["Authorization"] = `Basic ${credentials}`;
-      }
-
-      const response = await fetch(effectiveUrl, {
+      const response = await fetch("/api/query", {
         method: "POST",
-        headers,
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(payload),
         signal: controller.signal,
       });
       window.clearTimeout(timeoutId);
 
-      console.info("[n8n] Webhook response received", {
+      console.info("[query] API response received", {
         status: response.status,
         statusText: response.statusText,
       });
 
       const text = await response.text();
-      console.debug("[n8n] Raw response body", text || "(empty)");
+      console.debug("[query] Raw response body", text || "(empty)");
 
       if (!response.ok) {
         throw new Error(
@@ -323,7 +312,7 @@ function DashboardContent() {
             onSubmit={handleSubmit}
             disabled={disabled}
             errorMessage={errorMessage}
-            effectiveUrl={effectiveUrl}
+            canSubmit={canSubmit}
           />
           <div className="mt-6">
             <AdvancedSettings

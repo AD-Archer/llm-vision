@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useAdmin } from "../context/AdminContext";
+import { useSettings, AppSettings } from "../context/SettingsContext";
+import { useAuth } from "../context/AuthContext";
 import { UserStats, UserFeatures } from "../types";
 
 export function AdminPanel() {
@@ -14,10 +16,14 @@ export function AdminPanel() {
     invitationCodes,
     updateUserFeatures,
     removeUser,
+    resetPassword,
+    revokeInvitationCode,
   } = useAdmin();
+  const { settings, updateSettings } = useSettings();
+  const { user: currentUser } = useAuth();
 
   const [activeTab, setActiveTab] = useState<
-    "overview" | "users" | "invitations"
+    "overview" | "users" | "invitations" | "settings"
   >("overview");
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [newInvitation, setNewInvitation] = useState<{
@@ -82,6 +88,16 @@ export function AdminPanel() {
           }`}
         >
           Invitations
+        </button>
+        <button
+          onClick={() => setActiveTab("settings")}
+          className={`px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "settings"
+              ? "border-blue-500 text-blue-400"
+              : "border-transparent text-slate-400 hover:text-slate-300"
+          }`}
+        >
+          Settings
         </button>
       </div>
 
@@ -155,6 +171,15 @@ export function AdminPanel() {
                 isExpanded={expandedUser === user.id}
                 onToggle={() => toggleUserExpanded(user.id)}
                 onRemove={removeUser}
+                onResetPassword={async (
+                  userId: string,
+                  newPassword: string
+                ) => {
+                  if (currentUser) {
+                    await resetPassword(userId, newPassword, currentUser.id);
+                    alert("Password reset successfully!");
+                  }
+                }}
                 onUpdateFeatures={updateUserFeatures}
               />
             ))
@@ -235,14 +260,19 @@ export function AdminPanel() {
                           Invitation Code
                         </p>
                         <div className="flex gap-2">
-                          <code className="flex-1 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-yellow-400 font-mono bg-slate-800 rounded break-all">
-                            {invitation.code}
-                          </code>
                           <button
                             onClick={() => handleCopyCode(invitation.code)}
-                            className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs bg-slate-600 hover:bg-slate-500 rounded text-white transition-colors whitespace-nowrap"
+                            className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs bg-slate-600 hover:bg-slate-500 rounded text-white transition-colors"
                           >
                             Copy
+                          </button>
+                          <button
+                            onClick={() =>
+                              revokeInvitationCode(invitation.code)
+                            }
+                            className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs bg-red-600 hover:bg-red-700 rounded text-white transition-colors"
+                          >
+                            Revoke
                           </button>
                         </div>
                       </div>
@@ -308,6 +338,160 @@ export function AdminPanel() {
           </div>
         </div>
       )}
+
+      {/* Settings Tab */}
+      {activeTab === "settings" && (
+        <div className="space-y-3 sm:space-y-4">
+          <div className="bg-slate-700 rounded-lg p-3 sm:p-4">
+            <h3 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4">
+              API Configuration
+            </h3>
+            <ApiConfigurationForm
+              settings={settings}
+              onUpdateSettings={updateSettings}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface ApiConfigurationFormProps {
+  settings: AppSettings;
+  onUpdateSettings: (
+    updates: Partial<AppSettings>,
+    userId: string
+  ) => Promise<void>;
+}
+
+function ApiConfigurationForm({
+  settings,
+  onUpdateSettings,
+}: ApiConfigurationFormProps) {
+  const { user } = useAuth();
+  const [webhookUrl, setWebhookUrl] = useState(settings.webhookUrl || "");
+  const [timeoutSeconds, setTimeoutSeconds] = useState(
+    settings.timeoutSeconds || 60
+  );
+  const [webhookUsername, setWebhookUsername] = useState(
+    settings.webhookUsername || ""
+  );
+  const [webhookPassword, setWebhookPassword] = useState(
+    settings.webhookPassword || ""
+  );
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await onUpdateSettings(
+        {
+          webhookUrl,
+          timeoutSeconds,
+          webhookUsername,
+          webhookPassword,
+        },
+        user!.id
+      );
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (error) {
+      console.error("Failed to save settings", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const isModified =
+    webhookUrl !== (settings.webhookUrl || "") ||
+    timeoutSeconds !== (settings.timeoutSeconds || 60) ||
+    webhookUsername !== (settings.webhookUsername || "") ||
+    webhookPassword !== (settings.webhookPassword || "");
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-2">
+          Webhook URL
+        </label>
+        <input
+          type="url"
+          value={webhookUrl}
+          onChange={(e) => setWebhookUrl(e.target.value)}
+          placeholder="https://n8n.example.com/webhook/..."
+          className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        />
+        <p className="text-xs text-slate-400 mt-1">
+          Your n8n webhook URL for RAG workflow queries
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-2">
+          Request Timeout (seconds)
+        </label>
+        <input
+          type="number"
+          min="5"
+          max="600"
+          value={timeoutSeconds || ""}
+          onChange={(e) => {
+            const value = e.target.value;
+            setTimeoutSeconds(value === "" ? 60 : Number(value));
+          }}
+          className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-xs sm:text-sm text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        />
+        <p className="text-xs text-slate-400 mt-1">
+          How long to wait for webhook responses (5-600 seconds)
+        </p>
+      </div>
+
+      <div className="border-t border-slate-600 pt-4">
+        <h4 className="text-sm font-medium text-slate-300 mb-3">
+          Webhook Authentication (Optional)
+        </h4>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-2">
+              Username
+            </label>
+            <input
+              type="text"
+              value={webhookUsername}
+              onChange={(e) => setWebhookUsername(e.target.value)}
+              className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-2">
+              Password
+            </label>
+            <input
+              type="password"
+              value={webhookPassword}
+              onChange={(e) => setWebhookPassword(e.target.value)}
+              className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-4 border-t border-slate-600">
+        <button
+          onClick={handleSave}
+          disabled={!isModified || isSaving}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+        >
+          {isSaving ? "Saving..." : "Save Settings"}
+        </button>
+        {saveSuccess && (
+          <span className="text-green-400 text-sm self-center">
+            Settings saved!
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -317,6 +501,7 @@ interface UserCardProps {
   isExpanded: boolean;
   onToggle: () => void;
   onRemove: (userId: string) => void;
+  onResetPassword: (userId: string, newPassword: string) => Promise<void>;
   onUpdateFeatures: (userId: string, features: Partial<UserFeatures>) => void;
 }
 
@@ -325,6 +510,7 @@ function UserCard({
   isExpanded,
   onToggle,
   onRemove,
+  onResetPassword,
   onUpdateFeatures,
 }: UserCardProps) {
   const [features, setFeatures] = useState<Partial<UserFeatures>>({
@@ -333,6 +519,8 @@ function UserCard({
     advancedChartsEnabled: true,
     customWebhooksEnabled: true,
   });
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
 
   const handleFeatureChange = (
     key: keyof UserFeatures,
@@ -493,12 +681,50 @@ function UserCard({
           {/* Actions */}
           <div className="flex gap-2 border-t border-slate-600 pt-3 sm:pt-4">
             <button
+              onClick={() => setShowResetPassword(!showResetPassword)}
+              className="flex-1 px-3 py-1.5 sm:py-2 text-xs sm:text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium rounded transition-colors"
+            >
+              {showResetPassword ? "Cancel Reset" : "Reset Password"}
+            </button>
+            <button
               onClick={() => onRemove(user.id)}
               className="flex-1 px-3 py-1.5 sm:py-2 text-xs sm:text-sm bg-red-600 hover:bg-red-700 text-white font-medium rounded transition-colors"
             >
               Remove User
             </button>
           </div>
+
+          {showResetPassword && (
+            <div className="mt-3 space-y-2">
+              <input
+                type="password"
+                placeholder="New password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full px-3 py-2 text-sm bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400"
+              />
+              <button
+                onClick={async () => {
+                  if (newPassword.length < 6) {
+                    alert("Password must be at least 6 characters");
+                    return;
+                  }
+                  try {
+                    await onResetPassword(user.id, newPassword);
+                    setNewPassword("");
+                    setShowResetPassword(false);
+                  } catch (error) {
+                    alert(
+                      "Failed to reset password: " + (error as Error).message
+                    );
+                  }
+                }}
+                className="w-full px-3 py-2 text-sm bg-green-600 hover:bg-green-700 text-white font-medium rounded transition-colors"
+              >
+                Confirm Reset
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

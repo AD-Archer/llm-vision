@@ -12,14 +12,20 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "user";
+  isAdmin: boolean;
   queryCount?: number;
 }
 
 export interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (
+    email: string,
+    password: string,
+    name: string,
+    invitationCode?: string
+  ) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
   isAdmin: boolean;
@@ -46,29 +52,60 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     setIsLoading(false);
   }, []);
 
+  const register = async (
+    email: string,
+    password: string,
+    name: string,
+    invitationCode?: string
+  ) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, name, invitationCode }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Registration failed");
+      }
+
+      const data = await response.json();
+      const user = data.user;
+
+      setUser(user);
+      localStorage.setItem("llm-visi-user", JSON.stringify(user));
+
+      // Return setup requirement for caller to handle
+      return data.requiresSetup;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      // Simulate API call - in production, validate against a backend
-      // For now, we'll accept any non-empty email/password
-      if (!email || !password) {
-        throw new Error("Email and password are required");
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Login failed");
       }
 
-      // Determine if user is admin (in production, this would come from backend)
-      // For demo purposes: emails containing "admin" are admins
-      const isAdmin = email.toLowerCase().includes("admin");
+      const data = await response.json();
+      const user = data.user;
 
-      const newUser: User = {
-        id: `user-${Date.now()}`,
-        email,
-        name: email.split("@")[0],
-        role: isAdmin ? "admin" : "user",
-        queryCount: 0,
-      };
+      setUser(user);
+      localStorage.setItem("llm-visi-user", JSON.stringify(user));
 
-      setUser(newUser);
-      localStorage.setItem("llm-visi-user", JSON.stringify(newUser));
+      // Return setup requirement for caller to handle
+      return data.requiresSetup || false;
     } finally {
       setIsLoading(false);
     }
@@ -83,9 +120,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     user,
     isLoading,
     login,
+    register,
     logout,
     isAuthenticated: !!user,
-    isAdmin: user?.role === "admin",
+    isAdmin: user?.isAdmin || false,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

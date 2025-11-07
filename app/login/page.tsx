@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
 import { LoginHeader } from "./components/LoginHeader";
 import { LoginForm } from "./components/LoginForm";
-import { DemoCredentials } from "./components/DemoCredentials";
 import { SignUpLink } from "./components/SignUpLink";
 import { LoginFooter } from "./components/LoginFooter";
 
@@ -30,8 +29,14 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      await login(email, password);
-      router.push("/dashboard");
+      const requiresSetup = await login(email, password);
+
+      // Redirect based on whether setup is required
+      if (requiresSetup) {
+        router.push("/setup");
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
@@ -60,7 +65,6 @@ export default function LoginPage() {
             isLoading={isLoading}
             error={error}
           />
-          <DemoCredentials />
           <SignUpLink />
         </div>
 

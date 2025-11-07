@@ -55,14 +55,17 @@ export function ApiConfigurationSection({
           <input
             id="timeout"
             type="number"
-            min="10"
-            max="300"
-            value={timeoutSeconds}
-            onChange={(e) => onTimeoutChange(Number(e.target.value))}
+            min="5"
+            max="600"
+            value={timeoutSeconds || ""}
+            onChange={(e) => {
+              const value = e.target.value;
+              onTimeoutChange(value === "" ? 60 : Number(value));
+            }}
             className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-xs sm:text-sm text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           />
           <p className="text-xs text-slate-400 mt-1 sm:mt-1.5">
-            How long to wait for webhook responses (10-300 seconds)
+            How long to wait for webhook responses (5-600 seconds)
           </p>
         </div>
 
@@ -107,7 +110,8 @@ export function ApiConfigurationSection({
                 className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
               <p className="text-xs text-slate-400 mt-1 sm:mt-1.5">
-                Basic auth password for webhook (stored locally in browser)
+                Basic auth password for webhook (stored server-side and only
+                used when proxying requests)
               </p>
             </div>
           </div>

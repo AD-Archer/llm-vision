@@ -13,43 +13,41 @@ import { SaveSuccessMessage } from "./components/SaveSuccessMessage";
 function SettingsContent() {
   const { user, isAdmin } = useAuth();
   const { settings, updateSettings } = useSettings();
-  const [webhookUrl, setWebhookUrl] = useState("");
-  const [timeoutSeconds, setTimeoutSeconds] = useState(60);
   const [autoSaveQueries, setAutoSaveQueries] = useState(true);
-  const [webhookUsername, setWebhookUsername] = useState("");
-  const [webhookPassword, setWebhookPassword] = useState("");
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<"settings" | "admin">(
     isAdmin ? "admin" : "settings"
   );
 
   useEffect(() => {
-    setWebhookUrl(settings.webhookUrl);
-    setTimeoutSeconds(settings.timeoutSeconds);
     setAutoSaveQueries(settings.autoSaveQueries);
-    setWebhookUsername(settings.webhookUsername || "");
-    setWebhookPassword(settings.webhookPassword || "");
+    setSaveError(null);
   }, [settings]);
 
-  const handleSaveSettings = () => {
-    updateSettings({
-      webhookUrl,
-      timeoutSeconds,
-      autoSaveQueries,
-      webhookUsername,
-      webhookPassword,
-    });
-
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
+  const handleSaveSettings = async () => {
+    setSaveError(null);
+    setIsSaving(true);
+    try {
+      await updateSettings(
+        {
+          autoSaveQueries,
+        },
+        user!.id
+      );
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (error) {
+      setSaveError(
+        error instanceof Error ? error.message : "Failed to save settings."
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const isModified =
-    webhookUrl !== settings.webhookUrl ||
-    timeoutSeconds !== settings.timeoutSeconds ||
-    autoSaveQueries !== settings.autoSaveQueries ||
-    webhookUsername !== (settings.webhookUsername || "") ||
-    webhookPassword !== (settings.webhookPassword || "");
+  const isModified = autoSaveQueries !== settings.autoSaveQueries;
 
   return (
     <ProtectedRoute>
@@ -67,25 +65,14 @@ function SettingsContent() {
             <SettingsForm
               email={user?.email}
               name={user?.name}
-              webhookUrl={webhookUrl}
-              onWebhookUrlChange={setWebhookUrl}
-              timeoutSeconds={timeoutSeconds}
-              onTimeoutChange={setTimeoutSeconds}
               autoSaveQueries={autoSaveQueries}
               onAutoSaveQueriesChange={setAutoSaveQueries}
-              webhookUsername={webhookUsername}
-              onWebhookUsernameChange={setWebhookUsername}
-              webhookPassword={webhookPassword}
-              onWebhookPasswordChange={setWebhookPassword}
               onSave={handleSaveSettings}
               onReset={() => {
-                setWebhookUrl(settings.webhookUrl);
-                setTimeoutSeconds(settings.timeoutSeconds);
                 setAutoSaveQueries(settings.autoSaveQueries);
-                setWebhookUsername(settings.webhookUsername || "");
-                setWebhookPassword(settings.webhookPassword || "");
               }}
               isModified={isModified}
+              isSaving={isSaving}
             />
           )}
 
@@ -95,6 +82,13 @@ function SettingsContent() {
               <AdminPanel />
             </div>
           )}
+
+          {/* Validation/Error Feedback */}
+          {saveError ? (
+            <div className="mt-4 bg-red-900/30 border border-red-500 text-red-200 px-4 py-3 rounded-lg text-sm">
+              {saveError}
+            </div>
+          ) : null}
 
           {/* Success Message */}
           {saveSuccess && <SaveSuccessMessage />}
