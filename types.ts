@@ -49,6 +49,25 @@ export interface UserFeatures {
   customWebhooksEnabled: boolean;
 }
 
+// Follow-up Types
+export interface FollowUp {
+  id: string;
+  parentQueryId: string;
+  parentFollowUpId?: string;
+  question: string;
+  result: {
+    raw: InsightResponse;
+    insightText: string;
+    chart?: ChartConfig;
+  };
+  name?: string;
+  isFavorite: boolean;
+  chartType?: string;
+  createdAt: number;
+  updatedAt: number;
+  followUps?: FollowUp[]; // For nested follow-ups
+}
+
 export interface InvitationCode {
   code: string;
   createdAt: string;

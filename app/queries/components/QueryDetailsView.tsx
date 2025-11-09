@@ -1,8 +1,10 @@
 import type { SavedQuery } from "./QueriesList";
+import type { FollowUp } from "../../../types";
 import { QueryDetails } from "./QueryDetails";
 import { QueryMetadata } from "./QueryMetadata";
 import { QueryVisualizationName } from "./QueryVisualizationName";
 import { QueryActions } from "./QueryActions";
+import { FollowUpList } from "./FollowUpList";
 import { ArrowLeft } from "lucide-react";
 
 interface QueryDetailsViewProps {
@@ -17,6 +19,10 @@ interface QueryDetailsViewProps {
   onRerun: (query: SavedQuery) => void;
   onUpdate: (query: SavedQuery) => void;
   onToggleFavorite: (id: string) => void;
+  onToggleFollowUpFavorite: (id: string) => void;
+  onRenameFollowUp: (id: string, newName: string) => void;
+  onChangeFollowUpChartType: (id: string, chartType: string) => void;
+  onSelectFollowUp: (followUp: FollowUp) => void;
   onCopy: (query: SavedQuery) => void;
   onDelete: (id: string) => void;
   formatDate: (timestamp: number) => string;
@@ -34,6 +40,10 @@ export function QueryDetailsView({
   onRerun,
   onUpdate,
   onToggleFavorite,
+  onToggleFollowUpFavorite,
+  onRenameFollowUp,
+  onChangeFollowUpChartType,
+  onSelectFollowUp,
   onCopy,
   onDelete,
   formatDate,
@@ -71,6 +81,16 @@ export function QueryDetailsView({
         onDelete={onDelete}
         isUpdating={isUpdating}
       />
+      {query.followUps && query.followUps.length > 0 && (
+        <FollowUpList
+          followUps={query.followUps}
+          onSelectFollowUp={onSelectFollowUp}
+          onToggleFavorite={onToggleFollowUpFavorite}
+          onRenameFollowUp={onRenameFollowUp}
+          onChangeChartType={onChangeFollowUpChartType}
+          formatDate={formatDate}
+        />
+      )}
     </div>
   );
 }

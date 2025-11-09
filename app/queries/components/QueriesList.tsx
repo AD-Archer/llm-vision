@@ -1,4 +1,5 @@
 import type { NormalizedInsight } from "../../../utils/chartConfig";
+import type { FollowUp } from "../../../types";
 import { Star, Inbox } from "lucide-react";
 
 export interface SavedQuery {
@@ -9,6 +10,7 @@ export interface SavedQuery {
   updatedAt: number;
   isFavorite: boolean;
   visualizationName?: string;
+  followUps?: FollowUp[];
 }
 
 interface QueriesListProps {

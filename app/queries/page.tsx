@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { ProtectedRoute } from "../../components/ProtectedRoute";
 import { useAuth } from "../../context/AuthContext";
 import type { NormalizedInsight } from "../../utils/chartConfig";
+import type { FollowUp } from "../../types";
 import { QueriesHeader } from "./components/QueriesHeader";
 import { QueryControls } from "./components/QueryControls";
 import { QueriesList, type SavedQuery } from "./components/QueriesList";
@@ -28,27 +29,68 @@ export default function QueriesPage() {
         if (!res.ok) throw new Error("Failed to load queries");
         return res.json();
       })
-      .then((data) => {
-        const queries: SavedQuery[] = data.map((q: unknown) => {
-          const query = q as {
-            id: string;
-            question: string;
-            result: NormalizedInsight;
-            createdAt: string;
-            updatedAt: string;
-            isFavorite: boolean;
-            visualizationName?: string;
-          };
-          return {
-            id: query.id,
-            question: query.question,
-            result: query.result,
-            createdAt: new Date(query.createdAt).getTime(),
-            updatedAt: new Date(query.updatedAt).getTime(),
-            isFavorite: query.isFavorite,
-            visualizationName: query.visualizationName,
-          };
-        });
+      .then(async (data) => {
+        const queries: SavedQuery[] = await Promise.all(
+          data.map(async (q: unknown) => {
+            const query = q as {
+              id: string;
+              question: string;
+              result: NormalizedInsight;
+              createdAt: string;
+              updatedAt: string;
+              isFavorite: boolean;
+              visualizationName?: string;
+            };
+
+            // Load follow-ups for this query
+            let followUps: FollowUp[] = [];
+            try {
+              const followUpsResponse = await fetch(
+                `/api/follow-ups?userId=${user.id}&parentQueryId=${query.id}`
+              );
+              if (followUpsResponse.ok) {
+                const followUpsData = await followUpsResponse.json();
+                followUps = followUpsData.map(
+                  (f: {
+                    id: string;
+                    parentQueryId: string;
+                    parentFollowUpId?: string;
+                    question: string;
+                    result: NormalizedInsight;
+                    name?: string;
+                    isFavorite: boolean;
+                    chartType?: string;
+                    createdAt: string;
+                    updatedAt: string;
+                  }) => ({
+                    ...f,
+                    result: f.result,
+                    createdAt: new Date(f.createdAt).getTime(),
+                    updatedAt: new Date(f.updatedAt).getTime(),
+                  })
+                );
+              }
+            } catch (error) {
+              console.error(
+                "Failed to load follow-ups for query:",
+                query.id,
+                error
+              );
+            }
+
+            return {
+              id: query.id,
+              question: query.question,
+              result: query.result,
+              createdAt: new Date(query.createdAt).getTime(),
+              updatedAt: new Date(query.updatedAt).getTime(),
+              isFavorite: query.isFavorite,
+              visualizationName: query.visualizationName,
+              followUps,
+            };
+          })
+        );
+
         setSavedQueries(queries);
       })
       .catch((e) => console.error("Failed to load saved queries", e));
@@ -140,10 +182,75 @@ export default function QueriesPage() {
     }
   };
 
+  const handleToggleFollowUpFavorite = async (id: string) => {
+    if (!user) return;
+    // Find the follow-up and toggle its favorite status
+    const updatedQueries = savedQueries.map((query) => {
+      if (query.followUps) {
+        const updatedFollowUps = query.followUps.map((followUp) =>
+          followUp.id === id
+            ? { ...followUp, isFavorite: !followUp.isFavorite }
+            : followUp
+        );
+        return { ...query, followUps: updatedFollowUps };
+      }
+      return query;
+    });
+    setSavedQueries(updatedQueries);
+
+    // Update in database
+    await fetch(`/api/follow-ups/${id}?userId=${user.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        isFavorite: updatedQueries
+          .flatMap((q) => q.followUps || [])
+          .find((f) => f.id === id)?.isFavorite,
+      }),
+    });
+  };
+
   const handleRunQuery = (query: SavedQuery) => {
     // Store the query to be run in the dashboard
     sessionStorage.setItem("pending-query", JSON.stringify(query));
     window.location.href = "/dashboard";
+  };
+
+  const handleSelectFollowUp = (followUp: FollowUp) => {
+    // For now, just log. Later we can show follow-up details
+    console.log("Selected follow-up:", followUp);
+  };
+
+  const handleChangeFollowUpChartType = async (
+    id: string,
+    chartType: string
+  ) => {
+    if (!user) return;
+    // Update local state
+    const updatedQueries = savedQueries.map((query) => {
+      if (query.followUps) {
+        const updatedFollowUps = query.followUps.map((followUp) =>
+          followUp.id === id
+            ? {
+                ...followUp,
+                chartType: chartType === "auto" ? undefined : chartType,
+              }
+            : followUp
+        );
+        return { ...query, followUps: updatedFollowUps };
+      }
+      return query;
+    });
+    setSavedQueries(updatedQueries);
+
+    // Update in database
+    await fetch(`/api/follow-ups/${id}?userId=${user.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chartType: chartType === "auto" ? undefined : chartType,
+      }),
+    });
   };
 
   const filteredQueries = savedQueries
@@ -224,6 +331,10 @@ export default function QueriesPage() {
                 onRerun={handleRunQuery}
                 onUpdate={handleUpdateGraph}
                 onToggleFavorite={handleToggleFavorite}
+                onToggleFollowUpFavorite={handleToggleFollowUpFavorite}
+                onRenameFollowUp={handleRenameFollowUp}
+                onChangeFollowUpChartType={handleChangeFollowUpChartType}
+                onSelectFollowUp={handleSelectFollowUp}
                 onCopy={(query) => {
                   const text = `${query.question}\n\n${JSON.stringify(
                     query.result,

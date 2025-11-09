@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import type { ChartType, InsightResponse, QueryRequestBody } from "../../types";
+import type {
+  ChartType,
+  InsightResponse,
+  QueryRequestBody,
+  FollowUp,
+} from "../../types";
 import {
   normalizeInsight,
   type NormalizedInsight,
@@ -81,6 +86,11 @@ function DashboardContent() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [result, setResult] = useState<NormalizedInsight | null>(null);
   const [followUpQuestion, setFollowUpQuestion] = useState("");
+  const [followUpName, setFollowUpName] = useState("");
+  const [followUps, setFollowUps] = useState<FollowUp[]>([]);
+  const [currentParentQueryId, setCurrentParentQueryId] = useState<
+    string | null
+  >(null);
   const [updatingQueryId, setUpdatingQueryId] = useState<string | null>(null);
   const [lastAutoSavedQueryId, setLastAutoSavedQueryId] = useState<
     string | null
@@ -369,11 +379,44 @@ function DashboardContent() {
     handleSaveChart,
   ]);
 
-  const handleLoadSavedItem = (item: SavedItem) => {
+  const handleLoadSavedItem = async (item: SavedItem) => {
     setQuestion(item.question);
     setResult(item.result);
     setFetchState("success");
     setErrorMessage(null);
+    setCurrentParentQueryId(item.id);
+
+    // Load follow-ups for this query
+    try {
+      const response = await fetch(
+        `/api/follow-ups?userId=${user!.id}&parentQueryId=${item.id}`
+      );
+      if (response.ok) {
+        const followUpsData = await response.json();
+        const formattedFollowUps: FollowUp[] = followUpsData.map(
+          (f: {
+            id: string;
+            parentQueryId: string;
+            parentFollowUpId?: string;
+            question: string;
+            result: NormalizedInsight;
+            name?: string;
+            isFavorite: boolean;
+            chartType?: string;
+            createdAt: string;
+            updatedAt: string;
+          }) => ({
+            ...f,
+            result: f.result,
+            createdAt: new Date(f.createdAt).getTime(),
+            updatedAt: new Date(f.updatedAt).getTime(),
+          })
+        );
+        setFollowUps(formattedFollowUps);
+      }
+    } catch (error) {
+      console.error("Failed to load follow-ups:", error);
+    }
   };
 
   const handleDeleteSavedItem = async (itemId: string) => {
@@ -462,6 +505,43 @@ function DashboardContent() {
       setFollowUpQuestion("");
       setFetchState("success");
       setAbortController(null);
+
+      // If this is a follow-up, save it
+      if (followUpQuestion.trim() && currentParentQueryId) {
+        try {
+          const followUpData = {
+            parentQueryId: currentParentQueryId,
+            question: cleanedQuestion,
+            result: normalized,
+            name: followUpName.trim() || undefined,
+            chartType: chartType !== "auto" ? chartType : undefined,
+            userId: user!.id,
+          };
+
+          const followUpResponse = await fetch("/api/follow-ups", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(followUpData),
+          });
+
+          if (followUpResponse.ok) {
+            const savedFollowUp = await followUpResponse.json();
+            setFollowUps((prev) => [
+              ...prev,
+              {
+                ...savedFollowUp,
+                result: savedFollowUp.result,
+                createdAt: new Date(savedFollowUp.createdAt).getTime(),
+                updatedAt: new Date(savedFollowUp.updatedAt).getTime(),
+              },
+            ]);
+          }
+        } catch (error) {
+          console.error("Failed to save follow-up:", error);
+        }
+      }
+
+      setFollowUpName("");
     } catch (error) {
       logger.error("[n8n] Webhook request failed", error);
       if (error instanceof DOMException && error.name === "AbortError") {
@@ -601,7 +681,9 @@ function DashboardContent() {
               />
               <FollowUpForm
                 followUpQuestion={followUpQuestion}
+                followUpName={followUpName}
                 onFollowUpChange={setFollowUpQuestion}
+                onFollowUpNameChange={setFollowUpName}
                 onSubmit={handleSubmit}
                 disabled={disabled}
               />
