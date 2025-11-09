@@ -8,6 +8,7 @@ import {
   type NormalizedInsight,
 } from "../../utils/chartConfig";
 import { useSettings } from "../../context/SettingsContext";
+import { logger } from "../../utils/logger";
 import { ProtectedRoute } from "../../components/ProtectedRoute";
 import { useAuth } from "../../context/AuthContext";
 import { QueryForm } from "./components/QueryForm";
@@ -35,7 +36,7 @@ const extractJsonPayload = (raw: string) => {
   if (trimmed.startsWith("```")) {
     const match = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
     if (match?.[1]) {
-      console.warn("[n8n] Stripped markdown fences from response payload.");
+      logger.warn("[n8n] Stripped markdown fences from response payload.");
       return match[1];
     }
   }
@@ -106,7 +107,7 @@ function DashboardContent() {
         setUpdatingQueryId(id);
         sessionStorage.removeItem("update-query");
       } catch (e) {
-        console.error("Failed to parse update payload", e);
+        logger.error("Failed to parse update payload", e);
       }
     }
   }, []);
@@ -147,7 +148,7 @@ function DashboardContent() {
         });
         setSavedItems(items);
       })
-      .catch((error) => console.error("Failed to load saved queries:", error));
+      .catch((error) => logger.error("Failed to load saved queries:", error));
   }, [user]);
 
   useEffect(() => {
@@ -271,6 +272,56 @@ function DashboardContent() {
     }
   }, [result, updatingQueryId, question, user]);
 
+  const handleSaveRawJson = useCallback(
+    async (customQuestion: string, customResult: NormalizedInsight) => {
+      logger.info("handleSaveRawJson called", {
+        customQuestion,
+        customResult,
+        user,
+      });
+      if (!user) {
+        logger.error("No user found, cannot save");
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/queries", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            question: customQuestion,
+            result: customResult,
+            visualizationName:
+              customResult.chart?.meta?.title ||
+              customResult.chart?.meta?.visualizationName,
+            userId: user.id,
+          }),
+        });
+
+        if (!response.ok) {
+          logger.error("Save failed:", response.status, await response.text());
+          return;
+        }
+
+        const newQuery = await response.json();
+        logger.info("Query saved successfully:", newQuery);
+        const newItem: SavedItem = {
+          id: newQuery.id,
+          question: customQuestion,
+          result: customResult,
+          createdAt: new Date(newQuery.createdAt).getTime(),
+          updatedAt: new Date(newQuery.updatedAt).getTime(),
+          isFavorite: false,
+          visualizationName: newQuery.visualizationName,
+        };
+        setSavedItems((prev) => [newItem, ...prev]);
+      } catch (error) {
+        logger.error("Error saving query:", error);
+      }
+    },
+    [user]
+  );
+
   const handleToggleFavorite = useCallback(
     async (queryId: string, isFavorite: boolean) => {
       if (!user) return;
@@ -362,7 +413,7 @@ function DashboardContent() {
     setAbortController(controller);
 
     try {
-      console.info("[query] Sending request to internal API", {
+      logger.info("[query] Sending request to internal API", {
         payload,
       });
 
@@ -375,13 +426,13 @@ function DashboardContent() {
         signal: controller.signal,
       });
 
-      console.info("[query] API response received", {
+      logger.info("[query] API response received", {
         status: response.status,
         statusText: response.statusText,
       });
 
       const text = await response.text();
-      console.debug("[query] Raw response body", text || "(empty)");
+      logger.debug("[query] Raw response body", text || "(empty)");
 
       if (!response.ok) {
         throw new Error(
@@ -412,7 +463,7 @@ function DashboardContent() {
       setFetchState("success");
       setAbortController(null);
     } catch (error) {
-      console.error("[n8n] Webhook request failed", error);
+      logger.error("[n8n] Webhook request failed", error);
       if (error instanceof DOMException && error.name === "AbortError") {
         setFetchState("error");
         setErrorMessage("Query cancelled by user.");
@@ -440,7 +491,10 @@ function DashboardContent() {
         </header>
 
         {showRawJsonInput && (
-          <RawJsonInput onClose={() => setShowRawJsonInput(false)} />
+          <RawJsonInput
+            onClose={() => setShowRawJsonInput(false)}
+            onSave={handleSaveRawJson}
+          />
         )}
 
         <div className="grid gap-4 lg:gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-stretch">

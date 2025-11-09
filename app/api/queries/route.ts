@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/utils/logger";
 
 const CreateQueryPayload = z.object({
   question: z.string().trim().min(1),
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(queries);
   } catch (error) {
-    console.error("Failed to fetch queries:", error);
+    logger.error("Failed to fetch queries:", error);
     return NextResponse.json(
       { error: "Failed to fetch queries" },
       { status: 500 }
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(query, { status: 201 });
   } catch (error) {
-    console.error("Failed to create query:", error);
+    logger.error("Failed to create query:", error);
     return NextResponse.json(
       { error: "Failed to create query" },
       { status: 500 }

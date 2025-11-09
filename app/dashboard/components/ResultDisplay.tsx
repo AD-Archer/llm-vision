@@ -8,6 +8,7 @@ interface ResultDisplayProps {
   autoSaveQueries?: boolean;
   savedQueryId?: string;
   onToggleFavorite?: (queryId: string, isFavorite: boolean) => Promise<void>;
+  disableSave?: boolean;
 }
 
 export function ResultDisplay({
@@ -16,6 +17,7 @@ export function ResultDisplay({
   autoSaveQueries = false,
   savedQueryId,
   onToggleFavorite,
+  disableSave = false,
 }: ResultDisplayProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -103,7 +105,7 @@ export function ResultDisplay({
         ) : !autoSaveQueries ? (
           <button
             onClick={handleSave}
-            disabled={isSaving}
+            disabled={isSaving || disableSave}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
           >
             <span>💾</span>

@@ -5,6 +5,7 @@ import { normalizeInsight } from "@/utils/chartConfig";
 import type { InsightResponse } from "@/types";
 import type { NormalizedInsight } from "@/utils/chartConfig";
 import { ResultDisplay } from "./ResultDisplay";
+import { logger } from "@/utils/logger";
 
 const extractJsonPayload = (raw: string) => {
   const trimmed = raw.trim();
@@ -20,13 +21,15 @@ const extractJsonPayload = (raw: string) => {
 
 interface RawJsonInputProps {
   onClose: () => void;
+  onSave?: (question: string, result: NormalizedInsight) => Promise<void>;
 }
 
-export function RawJsonInput({ onClose }: RawJsonInputProps) {
+export function RawJsonInput({ onClose, onSave }: RawJsonInputProps) {
   const [jsonInput, setJsonInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<NormalizedInsight | null>(null);
   const [isValidated, setIsValidated] = useState(false);
+  const [queryName, setQueryName] = useState("");
 
   const handleValidate = () => {
     setError(null);
@@ -124,12 +127,36 @@ export function RawJsonInput({ onClose }: RawJsonInputProps) {
 
           {result && (
             <div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Query Name (for saving)
+                </label>
+                <input
+                  type="text"
+                  value={queryName}
+                  onChange={(e) => setQueryName(e.target.value)}
+                  placeholder="Enter a name for this query"
+                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white placeholder-slate-400 text-sm rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
               <ResultDisplay
                 result={result}
                 onSaveChart={async () => {
-                  // User can manually save from dashboard if needed
+                  logger.debug("RawJsonInput onSaveChart called", {
+                    onSave: !!onSave,
+                    queryName: queryName.trim(),
+                    result: !!result,
+                  });
+                  if (!queryName.trim()) {
+                    alert("Please enter a query name before saving");
+                    return;
+                  }
+                  if (onSave && result) {
+                    await onSave(queryName.trim(), result);
+                  }
                 }}
                 autoSaveQueries={false}
+                disableSave={!queryName.trim()}
               />
             </div>
           )}
@@ -141,6 +168,7 @@ export function RawJsonInput({ onClose }: RawJsonInputProps) {
                 setResult(null);
                 setIsValidated(false);
                 setError(null);
+                setQueryName("");
               }}
               className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition-colors"
             >
