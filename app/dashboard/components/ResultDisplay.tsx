@@ -1,18 +1,26 @@
 import type { NormalizedInsight } from "../../../utils/chartConfig";
 import ChartRenderer from "../../../components/ChartRenderer";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 interface ResultDisplayProps {
   result: NormalizedInsight;
-  onSaveChart: () => void;
-  showRaw: boolean;
-  updatingQueryId: string | null;
+  onSaveChart: () => Promise<void>;
+  autoSaveQueries?: boolean;
+  savedQueryId?: string;
+  onToggleFavorite?: (queryId: string, isFavorite: boolean) => Promise<void>;
 }
 
 export function ResultDisplay({
   result,
-  showRaw,
+  onSaveChart,
+  autoSaveQueries = false,
+  savedQueryId,
+  onToggleFavorite,
 }: ResultDisplayProps) {
+  const [isSaving, setIsSaving] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [showRaw, setShowRaw] = useState(false);
+
   const resultMeta = useMemo(() => {
     const meta = result.chart?.meta;
     return {
@@ -20,6 +28,26 @@ export function ResultDisplay({
       description: meta?.description ?? "",
     };
   }, [result]);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await onSaveChart();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleToggleFavorite = async () => {
+    if (!savedQueryId || !onToggleFavorite) return;
+    setIsSaving(true);
+    try {
+      await onToggleFavorite(savedQueryId, !isFavorite);
+      setIsFavorite(!isFavorite);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -61,16 +89,41 @@ export function ResultDisplay({
         </div>
       )}
 
+      {/* Save/Favorite Button */}
       <div className="flex justify-center">
+        {autoSaveQueries && savedQueryId ? (
+          <button
+            onClick={handleToggleFavorite}
+            disabled={isSaving}
+            className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+          >
+            <span>{isFavorite ? "★" : "☆"}</span>
+            {isFavorite ? "Remove from Favorites" : "Add to Favorites"}
+          </button>
+        ) : !autoSaveQueries ? (
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+          >
+            <span>💾</span>
+            {isSaving ? "Saving..." : "Save Query"}
+          </button>
+        ) : null}
       </div>
 
       <details className="bg-slate-700 rounded-lg p-4 border border-slate-600">
-        <summary className="cursor-pointer font-medium text-slate-300 hover:text-blue-400">
+        <summary
+          className="cursor-pointer font-medium text-slate-300 hover:text-blue-400"
+          onClick={() => setShowRaw(!showRaw)}
+        >
           {showRaw ? "Hide raw JSON preview" : "Show raw JSON preview"}
         </summary>
-        <pre className="mt-4 bg-slate-900 text-green-400 p-4 rounded-lg overflow-auto text-sm border border-slate-600">
-          {JSON.stringify(result.raw, null, 2)}
-        </pre>
+        {showRaw && (
+          <pre className="mt-4 bg-slate-900 text-green-400 p-4 rounded-lg overflow-auto text-sm border border-slate-600">
+            {JSON.stringify(result.raw, null, 2)}
+          </pre>
+        )}
       </details>
     </div>
   );

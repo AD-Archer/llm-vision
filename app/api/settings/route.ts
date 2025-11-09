@@ -9,6 +9,8 @@ const SettingsPayload = z.object({
   autoSaveQueries: z.boolean(),
   webhookUsername: z.string().optional(),
   webhookPassword: z.string().optional(),
+  requestTimeoutEnabled: z.boolean().optional(),
+  requestTimeoutSeconds: z.coerce.number().int().min(60).max(3600).optional(),
   userId: z.string(), // Add userId for admin check
 });
 

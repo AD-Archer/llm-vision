@@ -14,12 +14,12 @@ export interface AdminContextType {
   userFeatures: Record<string, UserFeatures>;
   invitationCodes: InvitationCode[];
   totalUsers: number;
-  activeUsers: number;
   totalQueries: number;
 
   // User management
   addUser: (email: string, name: string) => Promise<void>;
   removeUser: (userId: string) => Promise<void>;
+  makeAdmin: (userId: string, adminUserId: string) => Promise<void>;
   resetPassword: (
     userId: string,
     newPassword: string,
@@ -193,6 +193,24 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
+  const makeAdmin = async (userId: string, adminUserId: string) => {
+    const response = await fetch("/api/admin/make-admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: adminUserId, targetUserId: userId }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to make user admin");
+    }
+
+    // Update the user in the local state
+    setUsers((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, isAdmin: true } : u))
+    );
+  };
+
   const updateUserQueryCount = (userId: string, count: number) => {
     setUsers((prev) =>
       prev.map((u) =>
@@ -263,7 +281,6 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const totalUsers = users.length;
-  const activeUsers = users.filter((u) => u.status === "active").length;
   const totalQueries = users.reduce((sum, u) => sum + u.queryCount, 0);
 
   const value: AdminContextType = {
@@ -271,10 +288,10 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({
     userFeatures,
     invitationCodes,
     totalUsers,
-    activeUsers,
     totalQueries,
     addUser,
     removeUser,
+    makeAdmin,
     resetPassword,
     updateUserQueryCount,
     updateUserFeatures,

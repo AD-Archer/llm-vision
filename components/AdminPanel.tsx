@@ -5,17 +5,30 @@ import { useAdmin } from "../context/AdminContext";
 import { useSettings, AppSettings } from "../context/SettingsContext";
 import { useAuth } from "../context/AuthContext";
 import { UserStats, UserFeatures } from "../types";
+import { AdminSettingsSection } from "../app/settings/components/AdminSettingsSection";
 
-export function AdminPanel() {
+interface AdminPanelProps {
+  requestTimeoutEnabled: boolean;
+  onRequestTimeoutEnabledChange: (enabled: boolean) => void;
+  requestTimeoutSeconds: number;
+  onRequestTimeoutSecondsChange: (seconds: number) => void;
+}
+
+export function AdminPanel({
+  requestTimeoutEnabled,
+  onRequestTimeoutEnabledChange,
+  requestTimeoutSeconds,
+  onRequestTimeoutSecondsChange,
+}: AdminPanelProps) {
   const {
     users,
     totalUsers,
-    activeUsers,
     totalQueries,
     generateInvitationCode,
     invitationCodes,
     updateUserFeatures,
     removeUser,
+    makeAdmin,
     resetPassword,
     revokeInvitationCode,
   } = useAdmin();
@@ -115,10 +128,10 @@ export function AdminPanel() {
             </div>
             <div className="bg-slate-700 rounded-lg p-3 sm:p-4">
               <p className="text-xs sm:text-sm text-slate-400 mb-1">
-                Active Users
+                Total Users
               </p>
               <p className="text-2xl sm:text-3xl font-bold text-green-400">
-                {activeUsers}
+                {totalUsers}
               </p>
             </div>
             <div className="bg-slate-700 rounded-lg p-3 sm:p-4 col-span-2 sm:col-span-1">
@@ -140,15 +153,6 @@ export function AdminPanel() {
                 <span>Average Queries per User:</span>
                 <span className="font-semibold">
                   {totalUsers > 0 ? (totalQueries / totalUsers).toFixed(1) : 0}
-                </span>
-              </div>
-              <div className="flex justify-between text-xs sm:text-sm text-slate-300">
-                <span>Active Percentage:</span>
-                <span className="font-semibold">
-                  {totalUsers > 0
-                    ? ((activeUsers / totalUsers) * 100).toFixed(0)
-                    : 0}
-                  %
                 </span>
               </div>
             </div>
@@ -181,6 +185,12 @@ export function AdminPanel() {
                   }
                 }}
                 onUpdateFeatures={updateUserFeatures}
+                onMakeAdmin={async (userId: string) => {
+                  if (currentUser) {
+                    await makeAdmin(userId, currentUser.id);
+                    alert("User has been made an admin!");
+                  }
+                }}
               />
             ))
           )}
@@ -351,6 +361,13 @@ export function AdminPanel() {
               onUpdateSettings={updateSettings}
             />
           </div>
+
+          <AdminSettingsSection
+            requestTimeoutEnabled={requestTimeoutEnabled}
+            onRequestTimeoutEnabledChange={onRequestTimeoutEnabledChange}
+            requestTimeoutSeconds={requestTimeoutSeconds}
+            onRequestTimeoutSecondsChange={onRequestTimeoutSecondsChange}
+          />
         </div>
       )}
     </div>
@@ -503,6 +520,7 @@ interface UserCardProps {
   onRemove: (userId: string) => void;
   onResetPassword: (userId: string, newPassword: string) => Promise<void>;
   onUpdateFeatures: (userId: string, features: Partial<UserFeatures>) => void;
+  onMakeAdmin?: (userId: string) => Promise<void>;
 }
 
 function UserCard({
@@ -512,6 +530,7 @@ function UserCard({
   onRemove,
   onResetPassword,
   onUpdateFeatures,
+  onMakeAdmin,
 }: UserCardProps) {
   const [features, setFeatures] = useState<Partial<UserFeatures>>({
     maxQueriesPerDay: 100,
@@ -686,6 +705,14 @@ function UserCard({
             >
               {showResetPassword ? "Cancel Reset" : "Reset Password"}
             </button>
+            {onMakeAdmin && !user.isAdmin && (
+              <button
+                onClick={() => onMakeAdmin(user.id)}
+                className="flex-1 px-3 py-1.5 sm:py-2 text-xs sm:text-sm bg-purple-600 hover:bg-purple-700 text-white font-medium rounded transition-colors"
+              >
+                Make Admin
+              </button>
+            )}
             <button
               onClick={() => onRemove(user.id)}
               className="flex-1 px-3 py-1.5 sm:py-2 text-xs sm:text-sm bg-red-600 hover:bg-red-700 text-white font-medium rounded transition-colors"

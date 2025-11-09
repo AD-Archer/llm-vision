@@ -28,6 +28,7 @@ export async function GET() {
       status: user.isAdmin
         ? "active"
         : ("active" as "active" | "inactive" | "invited"), // For now, all are active
+      isAdmin: user.isAdmin,
     }));
 
     return NextResponse.json(userStats);

@@ -14,6 +14,8 @@ function SettingsContent() {
   const { user, isAdmin } = useAuth();
   const { settings, updateSettings } = useSettings();
   const [autoSaveQueries, setAutoSaveQueries] = useState(true);
+  const [requestTimeoutEnabled, setRequestTimeoutEnabled] = useState(false);
+  const [requestTimeoutSeconds, setRequestTimeoutSeconds] = useState(1800);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -23,6 +25,8 @@ function SettingsContent() {
 
   useEffect(() => {
     setAutoSaveQueries(settings.autoSaveQueries);
+    setRequestTimeoutEnabled(settings.requestTimeoutEnabled);
+    setRequestTimeoutSeconds(settings.requestTimeoutSeconds);
     setSaveError(null);
   }, [settings]);
 
@@ -30,12 +34,16 @@ function SettingsContent() {
     setSaveError(null);
     setIsSaving(true);
     try {
-      await updateSettings(
-        {
-          autoSaveQueries,
-        },
-        user!.id
-      );
+      const updatePayload: Record<string, unknown> = {
+        autoSaveQueries,
+      };
+
+      if (isAdmin) {
+        updatePayload.requestTimeoutEnabled = requestTimeoutEnabled;
+        updatePayload.requestTimeoutSeconds = requestTimeoutSeconds;
+      }
+
+      await updateSettings(updatePayload, user!.id);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
@@ -47,7 +55,10 @@ function SettingsContent() {
     }
   };
 
-  const isModified = autoSaveQueries !== settings.autoSaveQueries;
+  const isModified =
+    autoSaveQueries !== settings.autoSaveQueries ||
+    (isAdmin && requestTimeoutEnabled !== settings.requestTimeoutEnabled) ||
+    (isAdmin && requestTimeoutSeconds !== settings.requestTimeoutSeconds);
 
   return (
     <ProtectedRoute>
@@ -76,11 +87,14 @@ function SettingsContent() {
             />
           )}
 
-          {/* Admin Panel Tab */}
-          {activeTab === "admin" && (
-            <div className="bg-slate-800 rounded-lg border border-slate-700 p-3 sm:p-4 md:p-6">
-              <AdminPanel />
-            </div>
+          {/* Admin Panel Content */}
+          {activeTab === "admin" && isAdmin && (
+            <AdminPanel
+              requestTimeoutEnabled={requestTimeoutEnabled}
+              onRequestTimeoutEnabledChange={setRequestTimeoutEnabled}
+              requestTimeoutSeconds={requestTimeoutSeconds}
+              onRequestTimeoutSecondsChange={setRequestTimeoutSeconds}
+            />
           )}
 
           {/* Validation/Error Feedback */}

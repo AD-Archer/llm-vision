@@ -38,6 +38,7 @@ export interface UserStats {
   lastActive: string;
   status: "active" | "inactive" | "invited";
   invitationSentAt?: string;
+  isAdmin?: boolean;
 }
 
 export interface UserFeatures {

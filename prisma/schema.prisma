@@ -8,14 +8,16 @@ datasource db {
 }
 
 model AppSetting {
-  id              String   @id @default(cuid())
-  webhookUrl      String   @default("")
-  webhookUsername String?
-  webhookPassword String?
-  timeoutSeconds  Int      @default(60)
-  autoSaveQueries Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                       String   @id @default(cuid())
+  webhookUrl               String   @default("")
+  webhookUsername          String?
+  webhookPassword          String?
+  timeoutSeconds           Int      @default(60)
+  autoSaveQueries          Boolean  @default(true)
+  requestTimeoutEnabled    Boolean  @default(false)
+  requestTimeoutSeconds    Int      @default(1800) // 30 minutes default
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
 }
 
 model User {

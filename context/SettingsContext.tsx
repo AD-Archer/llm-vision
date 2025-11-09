@@ -14,6 +14,8 @@ export interface AppSettings {
   autoSaveQueries: boolean;
   webhookUsername?: string;
   webhookPassword?: string;
+  requestTimeoutEnabled: boolean;
+  requestTimeoutSeconds: number;
 }
 
 export interface SettingsContextType {
@@ -31,6 +33,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   autoSaveQueries: true,
   webhookUsername: "",
   webhookPassword: "",
+  requestTimeoutEnabled: false,
+  requestTimeoutSeconds: 1800, // 30 minutes
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(

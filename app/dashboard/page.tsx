@@ -15,6 +15,7 @@ import { AdvancedSettings } from "./components/AdvancedSettings";
 import { ResultDisplay } from "./components/ResultDisplay";
 import { FollowUpForm } from "./components/FollowUpForm";
 import { SavedQueriesList } from "./components/SavedQueriesList";
+import { RawJsonInput } from "./components/RawJsonInput";
 
 const SESSION_STORAGE_KEY = "llm-visi-session-id";
 
@@ -53,7 +54,7 @@ export interface SavedItem {
   visualizationName?: string;
 }
 
-const AVERAGE_QUERY_DURATION_SECONDS = 5 * 60;
+const AVERAGE_QUERY_DURATION_SECONDS = 7 * 60;
 
 const formatDuration = (totalSeconds: number) => {
   const minutes = Math.floor(totalSeconds / 60)
@@ -78,16 +79,21 @@ function DashboardContent() {
   const [fetchState, setFetchState] = useState<FetchState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [result, setResult] = useState<NormalizedInsight | null>(null);
-  const [showRaw] = useState(false);
   const [followUpQuestion, setFollowUpQuestion] = useState("");
   const [updatingQueryId, setUpdatingQueryId] = useState<string | null>(null);
+  const [lastAutoSavedQueryId, setLastAutoSavedQueryId] = useState<
+    string | null
+  >(null);
   const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
   const [countdown, setCountdown] = useState(AVERAGE_QUERY_DURATION_SECONDS);
+  const [showRawJsonInput, setShowRawJsonInput] = useState(false);
+  const [timeoutReached, setTimeoutReached] = useState(false);
+  const [abortController, setAbortController] =
+    useState<AbortController | null>(null);
 
   const disabled = fetchState === "loading";
   const webhookUrl = settings.webhookUrl?.trim();
   const canSubmit = Boolean(webhookUrl);
-  const timeoutSeconds = settings.timeoutSeconds;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -148,11 +154,25 @@ function DashboardContent() {
     let intervalId: number | null = null;
     if (fetchState === "loading") {
       setCountdown(AVERAGE_QUERY_DURATION_SECONDS);
+      setTimeoutReached(false);
       intervalId = window.setInterval(() => {
-        setCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+        setCountdown((prev) => {
+          const newValue = prev > 0 ? prev - 1 : 0;
+          // Check if timeout should be triggered
+          if (
+            settings.requestTimeoutEnabled &&
+            AVERAGE_QUERY_DURATION_SECONDS - newValue >=
+              settings.requestTimeoutSeconds
+          ) {
+            setTimeoutReached(true);
+          }
+          return newValue;
+        });
       }, 1000);
     } else {
       setCountdown(AVERAGE_QUERY_DURATION_SECONDS);
+      setTimeoutReached(false);
+      setAbortController(null);
     }
 
     return () => {
@@ -160,7 +180,11 @@ function DashboardContent() {
         window.clearInterval(intervalId);
       }
     };
-  }, [fetchState]);
+  }, [
+    fetchState,
+    settings.requestTimeoutEnabled,
+    settings.requestTimeoutSeconds,
+  ]);
 
   // Warn user before leaving if they have unsaved input or query is running
   useEffect(() => {
@@ -178,6 +202,15 @@ function DashboardContent() {
 
   const handleSessionReset = () => {
     setSessionId(createSessionId());
+  };
+
+  const handleTimeoutCancel = () => {
+    if (abortController) {
+      abortController.abort();
+      setAbortController(null);
+    }
+    setFetchState("error");
+    setErrorMessage("Query timed out and cancelled by user.");
   };
 
   const handleSaveChart = useCallback(async () => {
@@ -234,8 +267,26 @@ function DashboardContent() {
         visualizationName: newQuery.visualizationName,
       };
       setSavedItems((prev) => [newItem, ...prev]);
+      setLastAutoSavedQueryId(newQuery.id);
     }
   }, [result, updatingQueryId, question, user]);
+
+  const handleToggleFavorite = useCallback(
+    async (queryId: string, isFavorite: boolean) => {
+      if (!user) return;
+      await fetch(`/api/queries/${queryId}?userId=${user.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isFavorite }),
+      });
+      setSavedItems((prev) =>
+        prev.map((item) =>
+          item.id === queryId ? { ...item, isFavorite } : item
+        )
+      );
+    },
+    [user]
+  );
 
   // Auto-save successful results if enabled
   useEffect(() => {
@@ -306,14 +357,13 @@ function DashboardContent() {
       sessionId: normalizedSession,
       chatInput: cleanedQuestion,
     };
-    const timeoutMs = Math.max(5, timeoutSeconds) * 1000;
+    // Create AbortController for manual cancellation
     const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+    setAbortController(controller);
 
     try {
       console.info("[query] Sending request to internal API", {
         payload,
-        timeoutMs,
       });
 
       const response = await fetch("/api/query", {
@@ -324,7 +374,6 @@ function DashboardContent() {
         body: JSON.stringify(payload),
         signal: controller.signal,
       });
-      window.clearTimeout(timeoutId);
 
       console.info("[query] API response received", {
         status: response.status,
@@ -361,20 +410,20 @@ function DashboardContent() {
       setResult(normalized);
       setFollowUpQuestion("");
       setFetchState("success");
+      setAbortController(null);
     } catch (error) {
-      window.clearTimeout(timeoutId);
       console.error("[n8n] Webhook request failed", error);
       if (error instanceof DOMException && error.name === "AbortError") {
         setFetchState("error");
-        setErrorMessage(
-          `Canceled after waiting ${timeoutSeconds} seconds. Increase the timeout in settings or try again.`
-        );
+        setErrorMessage("Query cancelled by user.");
+        setAbortController(null);
         return;
       }
       setFetchState("error");
       setErrorMessage(
         error instanceof Error ? error.message : "Failed to contact webhook."
       );
+      setAbortController(null);
     }
   };
 
@@ -390,8 +439,12 @@ function DashboardContent() {
           </p>
         </header>
 
-        <div className="grid gap-4 lg:gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-start">
-          <div className="bg-slate-800 rounded-lg sm:rounded-xl border border-slate-700 shadow-lg p-4 sm:p-6">
+        {showRawJsonInput && (
+          <RawJsonInput onClose={() => setShowRawJsonInput(false)} />
+        )}
+
+        <div className="grid gap-4 lg:gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-stretch">
+          <div className="bg-slate-800 rounded-lg sm:rounded-xl border border-slate-700 shadow-lg p-4 sm:p-6 flex flex-col">
             <QueryForm
               question={question}
               onQuestionChange={setQuestion}
@@ -408,32 +461,61 @@ function DashboardContent() {
                 onSessionIdChange={setSessionId}
                 onSessionReset={handleSessionReset}
                 disabled={disabled}
+                isAdmin={user?.isAdmin}
+                onShowRawJsonInput={() => setShowRawJsonInput(true)}
               />
             </div>
           </div>
 
-          <div className="bg-slate-800 rounded-lg sm:rounded-xl border border-slate-700 shadow-lg p-4 sm:p-6 flex flex-col justify-between min-h-[220px]">
-            <div>
-              <p className="text-base sm:text-lg text-white font-semibold mb-3">
-                Run a workflow to visualize data.
-              </p>
-              <p className="text-sm text-slate-400">
-                Average query takes around five minutes. Keep this panel open to
-                monitor progress and next steps while your data visualizes.
-              </p>
-            </div>
-            <div className="mt-6 bg-slate-900/40 border border-slate-700/60 rounded-lg p-4 min-h-[120px]">
-              <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">
-                Estimated runtime
-              </p>
-              <p className="text-3xl font-bold text-white mb-1">
-                {formatDuration(countdown)}
-              </p>
-              <p className="text-xs text-slate-500">
-                {fetchState === "loading"
-                  ? "Workflow running — countdown reflects the ~5 min average."
-                  : "Kick off a workflow to start the countdown."}
-              </p>
+          <div className="bg-slate-800 rounded-lg sm:rounded-xl border border-slate-700 shadow-lg p-4 sm:p-6 flex flex-col">
+            <div className="flex flex-col h-full">
+              <div>
+                <p className="text-base sm:text-lg text-white font-semibold mb-3">
+                  Run a workflow to visualize data.
+                </p>
+                <p className="text-sm text-slate-400">
+                  Average query takes around seven minutes. Keep this panel open
+                  to monitor progress and next steps while your data visualizes.
+                </p>
+              </div>
+              <div className="mt-auto pt-6 bg-slate-900/40 border border-slate-700/60 rounded-lg p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">
+                  Elapsed time
+                </p>
+                <p className="text-3xl font-bold text-white mb-3">
+                  {formatDuration(countdown)}
+                </p>
+                <p className="text-xs text-slate-500 mb-4">
+                  {fetchState === "loading"
+                    ? timeoutReached && settings.requestTimeoutEnabled
+                      ? `Timeout period reached (${Math.floor(
+                          settings.requestTimeoutSeconds / 60
+                        )}m). Consider cancelling.`
+                      : "Workflow running — no automatic timeout."
+                    : "Kick off a workflow to start timing."}
+                </p>
+                {fetchState === "loading" && (
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => {
+                        setFetchState("error");
+                        setErrorMessage("Query cancelled by user.");
+                      }}
+                      className="w-full px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded transition-colors"
+                    >
+                      Cancel Query
+                    </button>
+                    {timeoutReached && settings.requestTimeoutEnabled && (
+                      <button
+                        onClick={handleTimeoutCancel}
+                        className="w-full px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white text-xs font-medium rounded transition-colors"
+                      >
+                        Cancel this flow - not recommended
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -457,8 +539,11 @@ function DashboardContent() {
               <ResultDisplay
                 result={result}
                 onSaveChart={handleSaveChart}
-                showRaw={showRaw}
-                updatingQueryId={updatingQueryId}
+                autoSaveQueries={settings.autoSaveQueries}
+                savedQueryId={
+                  updatingQueryId || lastAutoSavedQueryId || undefined
+                }
+                onToggleFavorite={handleToggleFavorite}
               />
               <FollowUpForm
                 followUpQuestion={followUpQuestion}
