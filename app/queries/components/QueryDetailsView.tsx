@@ -3,6 +3,7 @@ import { QueryDetails } from "./QueryDetails";
 import { QueryMetadata } from "./QueryMetadata";
 import { QueryVisualizationName } from "./QueryVisualizationName";
 import { QueryActions } from "./QueryActions";
+import { ArrowLeft } from "lucide-react";
 
 interface QueryDetailsViewProps {
   query: SavedQuery | null;
@@ -41,7 +42,7 @@ export function QueryDetailsView({
     return (
       <div className="bg-slate-800 rounded-lg border border-slate-700 p-12 text-center h-full flex items-center justify-center">
         <div>
-          <div className="text-4xl mb-3">👈</div>
+          <ArrowLeft className="w-16 h-16 mx-auto mb-3 text-slate-400" />
           <p className="text-slate-400">Select a query to view details</p>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import type { NormalizedInsight } from "../../../utils/chartConfig";
 import ChartRenderer from "../../../components/ChartRenderer";
 import { useMemo, useState } from "react";
+import { Star, Save } from "lucide-react";
 
 interface ResultDisplayProps {
   result: NormalizedInsight;
@@ -99,7 +100,7 @@ export function ResultDisplay({
             disabled={isSaving}
             className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
           >
-            <span>{isFavorite ? "★" : "☆"}</span>
+            <Star className={`w-4 h-4 ${isFavorite ? "fill-current" : ""}`} />
             {isFavorite ? "Remove from Favorites" : "Add to Favorites"}
           </button>
         ) : !autoSaveQueries ? (
@@ -108,7 +109,7 @@ export function ResultDisplay({
             disabled={isSaving || disableSave}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
           >
-            <span>💾</span>
+            <Save className="w-4 h-4" />
             {isSaving ? "Saving..." : "Save Query"}
           </button>
         ) : null}

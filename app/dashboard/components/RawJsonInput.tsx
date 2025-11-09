@@ -6,6 +6,7 @@ import type { InsightResponse } from "@/types";
 import type { NormalizedInsight } from "@/utils/chartConfig";
 import { ResultDisplay } from "./ResultDisplay";
 import { logger } from "@/utils/logger";
+import { X } from "lucide-react";
 
 const extractJsonPayload = (raw: string) => {
   const trimmed = raw.trim();
@@ -65,9 +66,9 @@ export function RawJsonInput({ onClose, onSave }: RawJsonInputProps) {
         <h2 className="text-2xl font-bold text-white">Raw JSON Input</h2>
         <button
           onClick={onClose}
-          className="text-slate-400 hover:text-slate-200 transition-colors text-2xl"
+          className="text-slate-400 hover:text-slate-200 transition-colors"
         >
-          ✕
+          <X className="w-6 h-6" />
         </button>
       </div>
 

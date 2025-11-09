@@ -5,6 +5,8 @@ interface AdminSettingsSectionProps {
   onRequestTimeoutSecondsChange: (value: number) => void;
 }
 
+import { Info } from "lucide-react";
+
 export function AdminSettingsSection({
   requestTimeoutEnabled,
   requestTimeoutSeconds,
@@ -81,8 +83,9 @@ export function AdminSettingsSection({
 
       {/* Info box */}
       <div className="bg-slate-900 border border-slate-600 rounded-lg p-3 text-xs sm:text-sm text-slate-300">
-        <p className="font-medium text-blue-400 mb-2">
-          ℹ️ About Request Timeouts
+        <p className="font-medium text-blue-400 mb-2 flex items-center gap-2">
+          <Info className="w-4 h-4" />
+          About Request Timeouts
         </p>
         <ul className="list-disc list-inside space-y-1 text-slate-400">
           <li>Disabled by default to allow queries to run as long as needed</li>

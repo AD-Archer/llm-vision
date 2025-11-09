@@ -9,9 +9,10 @@ const UpdateQueryPayload = z.object({
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const parsed = UpdateQueryPayload.safeParse(body);
 
@@ -30,7 +31,7 @@ export async function PUT(
     }
 
     const query = await prisma.savedQuery.updateMany({
-      where: { id: params.id, userId },
+      where: { id, userId },
       data: parsed.data,
     });
 
@@ -50,9 +51,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
 
@@ -61,7 +63,7 @@ export async function DELETE(
     }
 
     const query = await prisma.savedQuery.deleteMany({
-      where: { id: params.id, userId },
+      where: { id, userId },
     });
 
     if (query.count === 0) {
