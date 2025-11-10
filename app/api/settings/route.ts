@@ -10,6 +10,15 @@ const SettingsPayload = z.object({
   autoSaveQueries: z.boolean(),
   webhookUsername: z.string().optional(),
   webhookPassword: z.string().optional(),
+  webhookHeaders: z
+    .union([z.record(z.string(), z.string()), z.null()])
+    .optional(),
+  promptHelperWebhookUrl: z.string().trim().or(z.literal("")).optional(),
+  promptHelperUsername: z.string().optional(),
+  promptHelperPassword: z.string().optional(),
+  promptHelperHeaders: z
+    .union([z.record(z.string(), z.string()), z.null()])
+    .optional(),
   userId: z.string(), // Add userId for admin check
 });
 
@@ -45,11 +54,21 @@ export async function PUT(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { userId, ...updateData } = parsed.data;
 
-    const normalizedData = {
+    const normalizedData: Record<string, unknown> = {
       ...updateData,
       webhookUsername: updateData.webhookUsername?.trim() || null,
       webhookPassword: updateData.webhookPassword?.trim() || null,
+      promptHelperUsername: updateData.promptHelperUsername?.trim() || null,
+      promptHelperPassword: updateData.promptHelperPassword?.trim() || null,
     };
+
+    // Handle JSON fields - only include if not null
+    if (updateData.webhookHeaders !== null) {
+      normalizedData.webhookHeaders = updateData.webhookHeaders;
+    }
+    if (updateData.promptHelperHeaders !== null) {
+      normalizedData.promptHelperHeaders = updateData.promptHelperHeaders;
+    }
 
     // Update settings
     let settings;
@@ -103,11 +122,21 @@ export async function POST(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { userId, ...updateData } = parsed.data;
 
-    const normalizedData = {
+    const normalizedData: Record<string, unknown> = {
       ...updateData,
       webhookUsername: updateData.webhookUsername?.trim() || null,
       webhookPassword: updateData.webhookPassword?.trim() || null,
+      promptHelperUsername: updateData.promptHelperUsername?.trim() || null,
+      promptHelperPassword: updateData.promptHelperPassword?.trim() || null,
     };
+
+    // Handle JSON fields - only include if not null
+    if (updateData.webhookHeaders !== null) {
+      normalizedData.webhookHeaders = updateData.webhookHeaders;
+    }
+    if (updateData.promptHelperHeaders !== null) {
+      normalizedData.promptHelperHeaders = updateData.promptHelperHeaders;
+    }
 
     // Try to find existing settings, create if not found
     let settings;

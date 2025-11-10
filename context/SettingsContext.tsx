@@ -15,6 +15,11 @@ export interface AppSettings {
   autoSaveQueries: boolean;
   webhookUsername?: string;
   webhookPassword?: string;
+  webhookHeaders?: Record<string, string> | null;
+  promptHelperWebhookUrl: string;
+  promptHelperUsername?: string;
+  promptHelperPassword?: string;
+  promptHelperHeaders?: Record<string, string> | null;
 }
 
 export interface SettingsContextType {
@@ -33,6 +38,11 @@ const DEFAULT_SETTINGS: AppSettings = {
   autoSaveQueries: true,
   webhookUsername: "",
   webhookPassword: "",
+  webhookHeaders: null,
+  promptHelperWebhookUrl: "",
+  promptHelperUsername: "",
+  promptHelperPassword: "",
+  promptHelperHeaders: null,
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(

@@ -15,6 +15,7 @@ import { ResultDisplay } from "./components/ResultDisplay";
 import { FollowUpForm } from "./components/FollowUpForm";
 import { SavedQueriesList } from "./components/SavedQueriesList";
 import { RawJsonInput } from "./components/RawJsonInput";
+import { PromptHelperChat } from "./components/PromptHelperChat";
 
 const createSessionId = () => {
   if (
@@ -559,6 +560,8 @@ function DashboardContent() {
             </div>
           </div>
         </div>
+
+        <PromptHelperChat onPromptGenerated={setQuestion} />
 
         <div className="bg-slate-800 rounded-xl border border-slate-700 shadow-lg p-6">
           {fetchState === "idle" && (

@@ -9,6 +9,11 @@ export type SerializableSettings = {
   autoSaveQueries: boolean;
   webhookUsername: string;
   webhookPassword: string;
+  webhookHeaders: Record<string, string> | null;
+  promptHelperWebhookUrl: string;
+  promptHelperUsername: string;
+  promptHelperPassword: string;
+  promptHelperHeaders: Record<string, string> | null;
 };
 
 export async function getOrCreateSettings(): Promise<AppSetting> {
@@ -37,11 +42,17 @@ export async function getOrCreateSettings(): Promise<AppSetting> {
       webhookUrl: process.env.N8N_WEBHOOK_URL ?? "",
       webhookUsername: process.env.N8N_WEBHOOK_USERNAME ?? null,
       webhookPassword: process.env.N8N_WEBHOOK_PASSWORD ?? null,
+      webhookHeaders: null,
+      promptHelperWebhookUrl: "",
+      promptHelperUsername: null,
+      promptHelperPassword: null,
+      promptHelperHeaders: null,
       timeoutSeconds: Number(
         process.env.N8N_WEBHOOK_TIMEOUT_MS ??
           process.env.NEXT_PUBLIC_WEBHOOK_TIMEOUT_MS ??
           60
       ),
+      timeoutEnabled: false,
       autoSaveQueries: true,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -51,16 +62,24 @@ export async function getOrCreateSettings(): Promise<AppSetting> {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function toSerializableSettings(
-  settings: AppSetting
+  settings: unknown
 ): SerializableSettings {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const s = settings as any;
   return {
-    id: settings.id,
-    webhookUrl: settings.webhookUrl,
-    timeoutSeconds: settings.timeoutSeconds,
-    timeoutEnabled: settings.timeoutEnabled,
-    autoSaveQueries: settings.autoSaveQueries,
-    webhookUsername: settings.webhookUsername ?? "",
-    webhookPassword: settings.webhookPassword ?? "",
+    id: s.id,
+    webhookUrl: s.webhookUrl,
+    timeoutSeconds: s.timeoutSeconds,
+    timeoutEnabled: s.timeoutEnabled ?? false,
+    autoSaveQueries: s.autoSaveQueries,
+    webhookUsername: s.webhookUsername ?? "",
+    webhookPassword: s.webhookPassword ?? "",
+    webhookHeaders: s.webhookHeaders ?? null,
+    promptHelperWebhookUrl: s.promptHelperWebhookUrl ?? "",
+    promptHelperUsername: s.promptHelperUsername ?? "",
+    promptHelperPassword: s.promptHelperPassword ?? "",
+    promptHelperHeaders: s.promptHelperHeaders ?? null,
   };
 }

@@ -376,6 +376,15 @@ export function AdminPanel({
               onTimeoutSecondsChange={onTimeoutSecondsChange}
             />
           </div>
+          <div className="bg-slate-700 rounded-lg p-3 sm:p-4">
+            <h3 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4">
+              Prompt Helper Webhook
+            </h3>
+            <PromptHelperConfigurationForm
+              settings={settings}
+              onUpdateSettings={updateSettings}
+            />
+          </div>
         </div>
       )}
 
@@ -413,21 +422,30 @@ function ApiConfigurationForm({
   const [webhookPassword, setWebhookPassword] = useState(
     settings.webhookPassword || ""
   );
+  const [webhookHeaders, setWebhookHeaders] = useState<Record<string, string>>(
+    settings.webhookHeaders || {}
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await onUpdateSettings(
-        {
-          webhookUrl,
-          timeoutSeconds,
-          webhookUsername,
-          webhookPassword,
-        },
-        user!.id
-      );
+      const updates: Partial<AppSettings> = {
+        webhookUrl,
+        timeoutSeconds,
+        webhookUsername,
+        webhookPassword,
+      };
+      if (Object.keys(webhookHeaders).length > 0) {
+        updates.webhookHeaders = webhookHeaders;
+      } else if (
+        settings.webhookHeaders &&
+        Object.keys(settings.webhookHeaders).length > 0
+      ) {
+        updates.webhookHeaders = null;
+      }
+      await onUpdateSettings(updates, user!.id);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
@@ -441,13 +459,15 @@ function ApiConfigurationForm({
     webhookUrl !== (settings.webhookUrl || "") ||
     timeoutSeconds !== (settings.timeoutSeconds || 60) ||
     webhookUsername !== (settings.webhookUsername || "") ||
-    webhookPassword !== (settings.webhookPassword || "");
+    webhookPassword !== (settings.webhookPassword || "") ||
+    JSON.stringify(webhookHeaders) !==
+      JSON.stringify(settings.webhookHeaders || null);
 
   return (
     <div className="space-y-4">
       <div>
         <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-2">
-          Webhook URL
+          Rag Webhook URL
         </label>
         <input
           type="url"
@@ -539,6 +559,277 @@ function ApiConfigurationForm({
             />
           </div>
         </div>
+      </div>
+
+      <div className="border-t border-slate-600 pt-4">
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-sm font-medium text-slate-300">
+            Custom Headers (Optional)
+          </h4>
+          <button
+            onClick={() => {
+              const key = `header${Object.keys(webhookHeaders).length + 1}`;
+              setWebhookHeaders({ ...webhookHeaders, [key]: "" });
+            }}
+            className="px-3 py-1 text-xs bg-slate-600 hover:bg-slate-700 text-white rounded transition-colors"
+          >
+            Add Header
+          </button>
+        </div>
+        <div className="space-y-2">
+          {Object.entries(webhookHeaders).map(([key, value]) => (
+            <div key={key} className="flex gap-2 items-center">
+              <input
+                type="text"
+                placeholder="Header name"
+                value={key}
+                onChange={(e) => {
+                  const newKey = e.target.value;
+                  const newHeaders = { ...webhookHeaders };
+                  delete newHeaders[key];
+                  newHeaders[newKey] = value;
+                  setWebhookHeaders(newHeaders);
+                }}
+                className="flex-1 px-3 py-2 bg-slate-800 border border-slate-600 rounded text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+              <input
+                type="text"
+                placeholder="Header value"
+                value={value}
+                onChange={(e) =>
+                  setWebhookHeaders({
+                    ...webhookHeaders,
+                    [key]: e.target.value,
+                  })
+                }
+                className="flex-1 px-3 py-2 bg-slate-800 border border-slate-600 rounded text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+              <button
+                onClick={() => {
+                  const newHeaders = { ...webhookHeaders };
+                  delete newHeaders[key];
+                  setWebhookHeaders(newHeaders);
+                }}
+                className="px-2 py-2 text-red-400 hover:text-red-300 transition-colors"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-slate-400 mt-2">
+          Add custom headers for OAuth or other authentication requirements
+        </p>
+      </div>
+
+      <div className="flex gap-2 pt-4 border-t border-slate-600">
+        <button
+          onClick={handleSave}
+          disabled={!isModified || isSaving}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+        >
+          {isSaving ? "Saving..." : "Save Settings"}
+        </button>
+        {saveSuccess && (
+          <span className="text-green-400 text-sm self-center">
+            Settings saved!
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface PromptHelperConfigurationFormProps {
+  settings: AppSettings;
+  onUpdateSettings: (
+    updates: Partial<AppSettings>,
+    userId: string
+  ) => Promise<void>;
+}
+
+function PromptHelperConfigurationForm({
+  settings,
+  onUpdateSettings,
+}: PromptHelperConfigurationFormProps) {
+  const { user } = useAuth();
+  const [webhookUrl, setWebhookUrl] = useState(
+    settings.promptHelperWebhookUrl || ""
+  );
+  const [webhookUsername, setWebhookUsername] = useState(
+    settings.promptHelperUsername || ""
+  );
+  const [webhookPassword, setWebhookPassword] = useState(
+    settings.promptHelperPassword || ""
+  );
+  const [headers, setHeaders] = useState<Record<string, string>>(
+    settings.promptHelperHeaders || {}
+  );
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const updates: Partial<AppSettings> = {
+        promptHelperWebhookUrl: webhookUrl,
+        promptHelperUsername: webhookUsername,
+        promptHelperPassword: webhookPassword,
+      };
+      if (Object.keys(headers).length > 0) {
+        updates.promptHelperHeaders = headers;
+      }
+      await onUpdateSettings(updates, user!.id);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (error) {
+      console.error("Failed to save settings", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const isModified =
+    webhookUrl !== (settings.promptHelperWebhookUrl || "") ||
+    webhookUsername !== (settings.promptHelperUsername || "") ||
+    webhookPassword !== (settings.promptHelperPassword || "") ||
+    JSON.stringify(headers) !==
+      JSON.stringify(settings.promptHelperHeaders || null);
+
+  const addHeader = () => {
+    const key = `header${Object.keys(headers).length + 1}`;
+    setHeaders({ ...headers, [key]: "" });
+  };
+
+  const updateHeader = (key: string, value: string) => {
+    setHeaders({ ...headers, [key]: value });
+  };
+
+  const removeHeader = (key: string) => {
+    const newHeaders = { ...headers };
+    delete newHeaders[key];
+    setHeaders(newHeaders);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-2">
+          Prompt Helper Webhook URL
+        </label>
+        <input
+          type="url"
+          value={webhookUrl}
+          onChange={(e) => setWebhookUrl(e.target.value)}
+          placeholder="https://n8n.example.com/webhook/prompt-helper"
+          className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        />
+        <p className="text-xs text-slate-400 mt-1">
+          Webhook URL for the prompt helper AI chat
+        </p>
+      </div>
+
+      <div className="border-t border-slate-600 pt-4">
+        <h4 className="text-sm font-medium text-slate-300 mb-3">
+          Authentication (Optional)
+        </h4>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-2">
+              Username
+            </label>
+            <input
+              type="text"
+              value={webhookUsername}
+              onChange={(e) => setWebhookUsername(e.target.value)}
+              className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-2">
+              Password
+            </label>
+            <input
+              type="password"
+              value={webhookPassword}
+              onChange={(e) => setWebhookPassword(e.target.value)}
+              className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t border-slate-600 pt-4">
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-sm font-medium text-slate-300">
+            Custom Headers (Optional)
+          </h4>
+          <button
+            onClick={addHeader}
+            className="px-3 py-1 text-xs bg-slate-600 hover:bg-slate-700 text-white rounded transition-colors"
+          >
+            Add Header
+          </button>
+        </div>
+        <div className="space-y-2">
+          {Object.entries(headers).map(([key, value]) => (
+            <div key={key} className="flex gap-2 items-center">
+              <input
+                type="text"
+                placeholder="Header name"
+                value={key}
+                onChange={(e) => {
+                  const newKey = e.target.value;
+                  const newHeaders = { ...headers };
+                  delete newHeaders[key];
+                  newHeaders[newKey] = value;
+                  setHeaders(newHeaders);
+                }}
+                className="flex-1 px-3 py-2 bg-slate-800 border border-slate-600 rounded text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+              <input
+                type="text"
+                placeholder="Header value"
+                value={value}
+                onChange={(e) => updateHeader(key, e.target.value)}
+                className="flex-1 px-3 py-2 bg-slate-800 border border-slate-600 rounded text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+              <button
+                onClick={() => removeHeader(key)}
+                className="px-2 py-2 text-red-400 hover:text-red-300 transition-colors"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-slate-400 mt-2">
+          Add custom headers for webhook authentication or other requirements
+        </p>
       </div>
 
       <div className="flex gap-2 pt-4 border-t border-slate-600">
