@@ -1,0 +1,53 @@
+services:
+  llm-visi-dash:
+    image: adarcher/llm-visi-dash
+    ports:
+      - "3000:3000"
+    environment:
+      # Database connection - REQUIRED
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/llm_visi_dash?schema=public
+
+      # Next.js configuration
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+
+      # Optional: Override default port
+      # - PORT=3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - llm-visi-dash-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=llm_visi_dash
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - llm-visi-dash-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d llm_visi_dash"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+
+networks:
+  llm-visi-dash-network:
+    driver: bridge

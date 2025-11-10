@@ -8,6 +8,8 @@ import { useSettings } from "../../context/SettingsContext";
 import { useQuery } from "../../context/QueryContext";
 import { logger } from "../../utils/logger";
 import { ProtectedRoute } from "../../components/ProtectedRoute";
+
+export const dynamic = "force-dynamic";
 import { useAuth } from "../../context/AuthContext";
 import { QueryForm } from "./components/QueryForm";
 import { AdvancedSettings } from "./components/AdvancedSettings";

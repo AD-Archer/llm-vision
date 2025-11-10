@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ProtectedRoute } from "../../components/ProtectedRoute";
 import { useAuth } from "../../context/AuthContext";
@@ -14,7 +14,9 @@ import {
   type SearchFilters,
 } from "./components/AdvancedSearch";
 
-export default function QueriesPage() {
+export const dynamic = "force-dynamic";
+
+function QueriesPageContent() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -849,5 +851,24 @@ export default function QueriesPage() {
         </div>
       </div>
     </ProtectedRoute>
+  );
+}
+
+export default function QueriesPage() {
+  return (
+    <Suspense
+      fallback={
+        <ProtectedRoute>
+          <div className="min-h-screen flex items-center justify-center bg-slate-900">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+              <p className="text-slate-400">Loading queries...</p>
+            </div>
+          </div>
+        </ProtectedRoute>
+      }
+    >
+      <QueriesPageContent />
+    </Suspense>
   );
 }
