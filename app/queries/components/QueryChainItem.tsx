@@ -7,7 +7,7 @@ import { useState } from "react";
 
 interface ChainItem {
   id: string;
-  type: "query" | "followup";
+  type: "query" | "followup" | "parent";
   question: string;
   result: NormalizedInsight;
   name?: string;
@@ -26,6 +26,8 @@ interface QueryChainItemProps {
   onToggleFavorite: () => void;
   onRunNewQuery?: () => void;
   formatDate: (timestamp: number) => string;
+  isSelected?: boolean;
+  initialExpanded?: boolean;
 }
 
 export function QueryChainItem({
@@ -36,8 +38,10 @@ export function QueryChainItem({
   onToggleFavorite,
   onRunNewQuery,
   formatDate,
+  isSelected,
+  initialExpanded = false,
 }: QueryChainItemProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(initialExpanded);
 
   return (
     <div className="relative">
@@ -47,13 +51,20 @@ export function QueryChainItem({
       )}
 
       <div
-        className="relative bg-slate-750 border border-slate-600 rounded-lg p-4 hover:bg-slate-700 transition-colors group cursor-pointer"
-        onClick={() => setIsExpanded(!isExpanded)}
+        className={`relative bg-slate-750 border border-slate-600 rounded-lg p-4 hover:bg-slate-700 transition-colors group cursor-pointer ${
+          isSelected ? "ring-2 ring-blue-500" : ""
+        }`}
+        onClick={() => {
+          setIsExpanded(!isExpanded);
+          if (onSelect) {
+            onSelect();
+          }
+        }}
       >
         {/* Chain indicator */}
         <div className="flex items-center gap-3 mb-3">
           <div
-            className={`w-6 h-6 flex items-center justify-center rounded flex-shrink-0 ${
+            className={`w-6 h-6 flex items-center justify-center rounded flex-shrink-0 transition-colors ${
               isExpanded ? "bg-slate-600" : "bg-slate-700"
             }`}
           >
@@ -65,12 +76,18 @@ export function QueryChainItem({
           </div>
           <div
             className={`w-3 h-3 rounded-full flex-shrink-0 ${
-              chainItem.type === "query" ? "bg-blue-500" : "bg-green-500"
+              chainItem.type === "query"
+                ? "bg-blue-500"
+                : chainItem.type === "parent"
+                ? "bg-purple-500"
+                : "bg-green-500"
             }`}
           />
           <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">
             {chainItem.type === "query"
               ? "Original Query"
+              : chainItem.type === "parent"
+              ? "Parent Query"
               : `Follow-up ${index}`}
           </span>
           <div className="flex-1 min-w-0">
@@ -107,31 +124,15 @@ export function QueryChainItem({
           </button>
         </div>
 
-        {/* Question and actions */}
-        <div className="mb-3">
-          <p className="text-xs text-slate-400 line-clamp-2 mb-2">
-            {chainItem.question}
+        {/* Question */}
+        <div className="mb-4">
+          <p className="text-xs text-slate-400 mb-2">{chainItem.question}</p>
+          <p className="text-xs text-slate-500">
+            {formatDate(chainItem.updatedAt)}
           </p>
-          <div className="flex items-center gap-2">
-            <p className="text-xs text-slate-500">
-              {formatDate(chainItem.updatedAt)}
-            </p>
-            <div className="flex-1" />
-            {onSelect && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelect();
-                }}
-                className="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-              >
-                View Details
-              </button>
-            )}
-          </div>
         </div>
 
-        {/* Expanded content */}
+        {/* Content - Conditionally shown based on isExpanded */}
         {isExpanded && (
           <div className="mt-4 pt-4 border-t border-slate-600 space-y-4">
             {/* Chart Display */}

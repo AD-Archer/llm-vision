@@ -7,6 +7,37 @@ const UpdateQueryPayload = z.object({
   isFavorite: z.boolean().optional(),
 });
 
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get("userId");
+
+    if (!userId) {
+      return NextResponse.json({ error: "userId required" }, { status: 400 });
+    }
+
+    const query = await prisma.savedQuery.findFirst({
+      where: { id, userId },
+    });
+
+    if (!query) {
+      return NextResponse.json({ error: "Query not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(query);
+  } catch (error) {
+    console.error("Failed to fetch query:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch query" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

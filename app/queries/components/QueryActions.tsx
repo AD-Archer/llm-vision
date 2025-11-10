@@ -1,12 +1,13 @@
 import type { SavedQuery } from "./QueriesList";
+import type { FollowUp } from "../../../types";
 import { RotateCcw, Sparkles, Star, Copy, Trash2 } from "lucide-react";
 
 interface QueryActionsProps {
-  query: SavedQuery;
-  onRerun: (query: SavedQuery) => void;
-  onUpdate: (query: SavedQuery) => void;
+  query: SavedQuery | FollowUp;
+  onRerun: (query: SavedQuery | FollowUp) => void;
+  onUpdate: (query: SavedQuery | FollowUp) => void;
   onToggleFavorite: (id: string) => void;
-  onCopy: (query: SavedQuery) => void;
+  onCopy: (query: SavedQuery | FollowUp) => void;
   onDelete: (id: string) => void;
   isUpdating: boolean;
 }

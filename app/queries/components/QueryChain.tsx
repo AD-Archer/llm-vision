@@ -5,7 +5,7 @@ import { QueryChainItem } from "./QueryChainItem";
 
 interface TreeNode {
   id: string;
-  type: "query" | "followup";
+  type: "query" | "followup" | "parent";
   question: string;
   result: NormalizedInsight;
   name?: string;
@@ -19,7 +19,9 @@ interface TreeNode {
 }
 
 interface QueryChainProps {
-  query: SavedQuery;
+  query: SavedQuery | FollowUp;
+  parentQuery: SavedQuery | null;
+  selectedItem: SavedQuery | FollowUp | null;
   onSelectFollowUp: (followUp: FollowUp) => void;
   onToggleFavorite: (id: string) => void;
   onRunNewQuery?: (baseQuestion: string) => void;
@@ -28,6 +30,8 @@ interface QueryChainProps {
 
 export function QueryChain({
   query,
+  parentQuery,
+  selectedItem,
   onSelectFollowUp,
   onToggleFavorite,
   onRunNewQuery,
@@ -35,33 +39,51 @@ export function QueryChain({
 }: QueryChainProps) {
   // Build tree structure
   const buildTree = (): TreeNode[] => {
-    // Add root query
+    // Determine the root of the tree
+    const isViewingFollowUp = "parentQueryId" in query;
+
+    // If viewing a follow-up and we have the parent query, use it as the root
+    const rootQuery: SavedQuery | FollowUp =
+      isViewingFollowUp && parentQuery ? parentQuery : query;
+    const rootType: "query" | "followup" | "parent" =
+      isViewingFollowUp && parentQuery ? "query" : "query";
+    const rootName =
+      "visualizationName" in rootQuery
+        ? rootQuery.visualizationName
+        : "name" in rootQuery
+        ? rootQuery.name
+        : undefined;
+
+    // Add root
     const rootItem: TreeNode = {
-      id: query.id,
-      type: "query",
-      question: query.question,
-      result: query.result,
-      name: query.visualizationName,
-      isFavorite: query.isFavorite,
-      chartType: undefined,
-      createdAt: query.createdAt,
-      updatedAt: query.updatedAt,
-      item: query,
+      id: rootQuery.id,
+      type: rootType,
+      question: rootQuery.question,
+      result: rootQuery.result,
+      name: rootName,
+      isFavorite: "isFavorite" in rootQuery ? rootQuery.isFavorite : false,
+      chartType: "chartType" in rootQuery ? rootQuery.chartType : undefined,
+      createdAt: rootQuery.createdAt,
+      updatedAt: rootQuery.updatedAt,
+      item: rootQuery,
       children: [],
       level: 0,
     };
 
     // Group follow-ups by parent
     const followUpsByParent: Record<string, FollowUp[]> = {};
-    if (query.followUps) {
-      query.followUps.forEach((followUp: FollowUp) => {
-        const parentId = followUp.parentFollowUpId || followUp.parentQueryId;
-        if (!followUpsByParent[parentId]) {
-          followUpsByParent[parentId] = [];
-        }
-        followUpsByParent[parentId].push(followUp);
-      });
-    }
+
+    // Get all follow-ups from the root query
+    const allFollowUps =
+      "followUps" in rootQuery ? rootQuery.followUps || [] : [];
+
+    allFollowUps.forEach((followUp: FollowUp) => {
+      const parentId = followUp.parentFollowUpId || followUp.parentQueryId;
+      if (!followUpsByParent[parentId]) {
+        followUpsByParent[parentId] = [];
+      }
+      followUpsByParent[parentId].push(followUp);
+    });
 
     // Recursive function to build tree
     const buildChildren = (parentId: string, level: number): TreeNode[] => {
@@ -86,7 +108,7 @@ export function QueryChain({
         );
     };
 
-    rootItem.children = buildChildren(query.id, 1);
+    rootItem.children = buildChildren(rootQuery.id, 1);
 
     // Flatten for rendering with level information
     const flattenTree = (
@@ -148,6 +170,10 @@ export function QueryChain({
               onRunNewQuery ? () => onRunNewQuery(treeItem.question) : undefined
             }
             formatDate={formatDate}
+            isSelected={
+              selectedItem ? treeItem.item.id === selectedItem.id : false
+            }
+            initialExpanded={treeItem.type === "query" && treeItem.level === 0}
           />
         </div>
       ))}

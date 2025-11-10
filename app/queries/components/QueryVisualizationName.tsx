@@ -1,7 +1,8 @@
 import type { SavedQuery } from "./QueriesList";
+import type { FollowUp } from "../../../types";
 
 interface QueryVisualizationNameProps {
-  query: SavedQuery;
+  query: SavedQuery | FollowUp;
   isEditing: boolean;
   editingValue: string;
   onEditStart: () => void;
@@ -61,7 +62,7 @@ export function QueryVisualizationName({
         </div>
       ) : (
         <p className="text-slate-300 p-3 sm:p-4 bg-slate-900 rounded-lg text-xs sm:text-sm mt-3">
-          {query.visualizationName ||
+          {(query as SavedQuery).visualizationName ||
             query.result.chart?.meta?.visualizationName ||
             "No name provided"}
         </p>

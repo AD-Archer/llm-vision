@@ -7,7 +7,8 @@ import { QueryChain } from "./QueryChain";
 import { ArrowLeft } from "lucide-react";
 
 interface QueryDetailsViewProps {
-  query: SavedQuery | null;
+  query: SavedQuery | FollowUp | null;
+  parentQuery: SavedQuery | null;
   isEditingVisualizationName: boolean;
   editingName: string;
   isUpdating: boolean;
@@ -15,12 +16,12 @@ interface QueryDetailsViewProps {
   onVisualizationEditCancel: () => void;
   onVisualizationEditChange: (value: string) => void;
   onVisualizationEditSave: (newName: string) => void;
-  onRerun: (query: SavedQuery) => void;
-  onUpdate: (query: SavedQuery) => void;
+  onRerun: (query: SavedQuery | FollowUp) => void;
+  onUpdate: (query: SavedQuery | FollowUp) => void;
   onToggleFavorite: (id: string) => void;
   onToggleFollowUpFavorite: (id: string) => void;
   onSelectFollowUp: (followUp: FollowUp) => void;
-  onCopy: (query: SavedQuery) => void;
+  onCopy: (query: SavedQuery | FollowUp) => void;
   onDelete: (id: string) => void;
   onRunNewQuery?: (baseQuestion: string) => void;
   formatDate: (timestamp: number) => string;
@@ -28,6 +29,7 @@ interface QueryDetailsViewProps {
 
 export function QueryDetailsView({
   query,
+  parentQuery,
   isEditingVisualizationName,
   editingName,
   isUpdating,
@@ -59,28 +61,34 @@ export function QueryDetailsView({
   return (
     <div className="bg-slate-800 rounded-lg border border-slate-700 p-4 sm:p-6">
       <QueryMetadata query={query} formatDate={formatDate} />
-      <QueryVisualizationName
-        query={query}
-        isEditing={isEditingVisualizationName}
-        editingValue={editingName}
-        onEditStart={onVisualizationEditStart}
-        onEditCancel={onVisualizationEditCancel}
-        onEditChange={onVisualizationEditChange}
-        onEditSave={onVisualizationEditSave}
-      />
-      <QueryActions
-        query={query}
-        onRerun={onRerun}
-        onUpdate={onUpdate}
-        onToggleFavorite={onToggleFavorite}
-        onCopy={onCopy}
-        onDelete={onDelete}
-        isUpdating={isUpdating}
-      />
+      {"visualizationName" in query && (
+        <QueryVisualizationName
+          query={query}
+          isEditing={isEditingVisualizationName}
+          editingValue={editingName}
+          onEditStart={onVisualizationEditStart}
+          onEditCancel={onVisualizationEditCancel}
+          onEditChange={onVisualizationEditChange}
+          onEditSave={onVisualizationEditSave}
+        />
+      )}
+      {"visualizationName" in query && (
+        <QueryActions
+          query={query}
+          onRerun={onRerun}
+          onUpdate={onUpdate}
+          onToggleFavorite={onToggleFavorite}
+          onCopy={onCopy}
+          onDelete={onDelete}
+          isUpdating={isUpdating}
+        />
+      )}
       <div className="mt-6">
         <h3 className="text-lg font-semibold text-white mb-4">Query Chain</h3>
         <QueryChain
           query={query}
+          parentQuery={parentQuery}
+          selectedItem={query}
           onSelectFollowUp={onSelectFollowUp}
           onToggleFavorite={onToggleFollowUpFavorite}
           onRunNewQuery={onRunNewQuery}

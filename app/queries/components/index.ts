@@ -8,3 +8,5 @@ export { QueryChainItem } from "./QueryChainItem";
 export { QueryDetailsView } from "./QueryDetailsView";
 export { QueryMetadata } from "./QueryMetadata";
 export { QueryVisualizationName } from "./QueryVisualizationName";
+export { AdvancedSearch } from "./AdvancedSearch";
+export type { SearchFilters } from "./AdvancedSearch";

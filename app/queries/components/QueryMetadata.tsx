@@ -1,8 +1,9 @@
 import type { SavedQuery } from "./QueriesList";
+import type { FollowUp } from "../../../types";
 import { Star } from "lucide-react";
 
 interface QueryMetadataProps {
-  query: SavedQuery;
+  query: SavedQuery | FollowUp;
   formatDate: (timestamp: number) => string;
 }
 
