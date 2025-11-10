@@ -63,6 +63,7 @@ export function QueryVisualizationName({
       ) : (
         <p className="text-slate-300 p-3 sm:p-4 bg-slate-900 rounded-lg text-xs sm:text-sm mt-3">
           {(query as SavedQuery).visualizationName ||
+            (query as FollowUp).name ||
             query.result.chart?.meta?.visualizationName ||
             "No name provided"}
         </p>

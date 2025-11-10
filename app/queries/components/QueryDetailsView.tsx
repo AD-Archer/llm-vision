@@ -78,7 +78,7 @@ export function QueryDetailsView({
   return (
     <div className="bg-slate-800 rounded-lg border border-slate-700 p-4 sm:p-6">
       <QueryMetadata query={query} formatDate={formatDate} />
-      {"visualizationName" in query && (
+      {("visualizationName" in query || "name" in query) && (
         <QueryVisualizationName
           query={query}
           isEditing={isEditingVisualizationName}
@@ -89,17 +89,15 @@ export function QueryDetailsView({
           onEditSave={onVisualizationEditSave}
         />
       )}
-      {"visualizationName" in query && (
-        <QueryActions
-          query={query}
-          onRerun={onRerun}
-          onUpdate={onUpdate}
-          onToggleFavorite={onToggleFavorite}
-          onCopy={onCopy}
-          onDelete={onDelete}
-          isUpdating={isUpdating}
-        />
-      )}
+      <QueryActions
+        query={query}
+        onRerun={onRerun}
+        onUpdate={onUpdate}
+        onToggleFavorite={onToggleFavorite}
+        onCopy={onCopy}
+        onDelete={onDelete}
+        isUpdating={isUpdating}
+      />
       <div className="mt-6">
         <h3 className="text-lg font-semibold text-white mb-4">Query Chain</h3>
         <QueryChain

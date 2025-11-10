@@ -195,7 +195,7 @@ export default function QueriesPage() {
   const handleDeleteQuery = async (id: string) => {
     if (!user) return;
     try {
-      const response = await fetch(`/api/queries?id=${id}&userId=${user.id}`, {
+      const response = await fetch(`/api/queries/${id}?userId=${user.id}`, {
         method: "DELETE",
       });
       if (!response.ok) throw new Error("Failed to delete query");
@@ -261,23 +261,78 @@ export default function QueriesPage() {
 
   const handleUpdateVisualizationName = async (id: string, newName: string) => {
     if (!user) return;
-    await fetch(`/api/queries/${id}?userId=${user.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ visualizationName: newName }),
-    });
-    const updated = savedQueries.map((q) =>
-      q.id === id ? { ...q, visualizationName: newName } : q
-    );
-    setSavedQueries(updated);
+
+    // Check if this is a saved query or a follow-up
+    const isSavedQuery = savedQueries.some((q) => q.id === id);
+    const isFollowUp =
+      selectedItem && "parentQueryId" in selectedItem && selectedItem.id === id;
+
+    if (isSavedQuery) {
+      // Update saved query
+      await fetch(`/api/queries/${id}?userId=${user.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visualizationName: newName }),
+      });
+      const updated = savedQueries.map((q) =>
+        q.id === id ? { ...q, visualizationName: newName } : q
+      );
+      setSavedQueries(updated);
+    } else if (isFollowUp) {
+      // Update follow-up
+      await fetch(`/api/follow-ups/${id}?userId=${user.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newName }),
+      });
+      // Update the follow-up in the saved queries state
+      const updated = savedQueries.map((q) => {
+        if (q.followUps) {
+          const updatedFollowUps = updateFollowUpInTree(q.followUps, id, {
+            name: newName,
+          });
+          if (updatedFollowUps !== q.followUps) {
+            return { ...q, followUps: updatedFollowUps };
+          }
+        }
+        return q;
+      });
+      setSavedQueries(updated);
+    }
+
+    // Update selected item
     if (selectedItem && "id" in selectedItem && selectedItem.id === id) {
       setSelectedItem({
         ...selectedItem,
-        visualizationName: newName,
+        ...(isSavedQuery ? { visualizationName: newName } : { name: newName }),
       });
     }
     setEditingVisualizationName(null);
     setEditingName("");
+  };
+
+  // Helper function to update a follow-up in the nested tree structure
+  const updateFollowUpInTree = (
+    followUps: FollowUp[],
+    id: string,
+    updates: Partial<FollowUp>
+  ): FollowUp[] => {
+    return followUps.map((followUp) => {
+      if (followUp.id === id) {
+        return { ...followUp, ...updates };
+      }
+      if (followUp.followUps) {
+        const updatedNested = updateFollowUpInTree(
+          followUp.followUps,
+          id,
+          updates
+        );
+        if (updatedNested !== followUp.followUps) {
+          return { ...followUp, followUps: updatedNested };
+        }
+      }
+      return followUp;
+    });
   };
 
   const handleUpdateGraph = async (query: SavedQuery) => {
@@ -354,18 +409,33 @@ export default function QueriesPage() {
     if (!user) return;
     if (
       confirm(
-        "Are you sure you want to delete all saved queries? This cannot be undone."
+        "Are you sure you want to delete all non-favorite saved queries? This cannot be undone."
       )
     ) {
+      // Only delete non-favorite queries
+      const nonFavoriteQueries = savedQueries.filter((q) => !q.isFavorite);
+
       Promise.all(
-        savedQueries.map((q) =>
+        nonFavoriteQueries.map((q) =>
           fetch(`/api/queries/${q.id}?userId=${user.id}`, {
             method: "DELETE",
           })
         )
       ).then(() => {
-        setSavedQueries([]);
-        setSelectedItem(null);
+        // Keep only favorite queries in the state
+        setSavedQueries((prev) => prev.filter((q) => q.isFavorite));
+        // Clear selection if the selected item was deleted (either directly or as a follow-up of a deleted query)
+        if (selectedItem) {
+          const isSelectedItemDeleted =
+            "isFavorite" in selectedItem && !selectedItem.isFavorite;
+          const isParentQueryDeleted =
+            "parentQueryId" in selectedItem &&
+            nonFavoriteQueries.some((q) => q.id === selectedItem.parentQueryId);
+
+          if (isSelectedItemDeleted || isParentQueryDeleted) {
+            setSelectedItem(null);
+          }
+        }
       });
     }
   };
@@ -377,11 +447,25 @@ export default function QueriesPage() {
   };
 
   const handleRunNewQuery = (baseQuestion: string) => {
-    // Find the query that contains this follow-up
-    const parentQuery = getParentQueryForSelectedItem();
-    if (parentQuery) {
-      // Store the parent query id to load in follow-up mode
-      sessionStorage.setItem("follow-up-query", parentQuery.id);
+    // Find the root query for follow-up mode
+    const getRootQueryForItem = (): SavedQuery | null => {
+      if (selectedItem && "parentQueryId" in selectedItem) {
+        // It's a follow-up, find its root parent query
+        const followUp = selectedItem as FollowUp;
+        return (
+          savedQueries.find((q) => q.id === followUp.parentQueryId) || null
+        );
+      } else if (selectedItem && "visualizationName" in selectedItem) {
+        // It's a SavedQuery, use it as the root query
+        return selectedItem as SavedQuery;
+      }
+      return null;
+    };
+
+    const rootQuery = getRootQueryForItem();
+    if (rootQuery) {
+      // Store the root query id to load in follow-up mode
+      sessionStorage.setItem("follow-up-query", rootQuery.id);
       sessionStorage.setItem("pending-question", baseQuestion);
       window.location.href = "/dashboard";
     } else {
@@ -651,7 +735,7 @@ export default function QueriesPage() {
                       onClick={handleClearAll}
                       className="px-4 py-2 bg-red-900/20 hover:bg-red-900/30 text-red-400 border border-red-700 rounded-lg transition-colors text-sm whitespace-nowrap"
                     >
-                      Clear All
+                      Clear Non-Favorites
                     </button>
                   </div>
                 )}

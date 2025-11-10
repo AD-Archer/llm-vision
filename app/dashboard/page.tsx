@@ -69,6 +69,7 @@ function DashboardContent() {
   const [lastAutoSavedQueryId, setLastAutoSavedQueryId] = useState<
     string | null
   >(null);
+  const [followUpQueryLoaded, setFollowUpQueryLoaded] = useState(false);
   const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
   const [showRawJsonInput, setShowRawJsonInput] = useState(false);
 
@@ -151,9 +152,28 @@ function DashboardContent() {
         })
         .finally(() => {
           sessionStorage.removeItem("follow-up-query");
+          setFollowUpQueryLoaded(true);
         });
     }
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Scroll to follow-up form when follow-up query is loaded
+  useEffect(() => {
+    if (followUpQueryLoaded && currentParentQueryId) {
+      // Small delay to ensure the form is rendered
+      setTimeout(() => {
+        const followUpTextarea = document.getElementById("followup");
+        if (followUpTextarea) {
+          followUpTextarea.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+          followUpTextarea.focus();
+        }
+      }, 100);
+      setFollowUpQueryLoaded(false); // Reset for next time
+    }
+  }, [followUpQueryLoaded, currentParentQueryId]);
 
   // Warn user before leaving if they have unsaved input or query is running
   useEffect(() => {
@@ -313,7 +333,8 @@ function DashboardContent() {
       !queryState.result ||
       queryState.fetchState !== "success" ||
       !settings.autoSaveQueries ||
-      !queryState.question.trim()
+      !queryState.question.trim() ||
+      currentParentQueryId // Don't auto-save when in follow-up mode
     ) {
       return;
     }
@@ -335,6 +356,7 @@ function DashboardContent() {
     queryState.question,
     savedItems,
     handleSaveChart,
+    currentParentQueryId,
   ]);
 
   const handleLoadSavedItem = async (item: SavedItem) => {
