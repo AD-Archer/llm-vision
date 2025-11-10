@@ -1,10 +1,9 @@
 import type { SavedQuery } from "./QueriesList";
 import type { FollowUp } from "../../../types";
-import { QueryDetails } from "./QueryDetails";
 import { QueryMetadata } from "./QueryMetadata";
 import { QueryVisualizationName } from "./QueryVisualizationName";
 import { QueryActions } from "./QueryActions";
-import { FollowUpList } from "./FollowUpList";
+import { QueryChain } from "./QueryChain";
 import { ArrowLeft } from "lucide-react";
 
 interface QueryDetailsViewProps {
@@ -20,11 +19,10 @@ interface QueryDetailsViewProps {
   onUpdate: (query: SavedQuery) => void;
   onToggleFavorite: (id: string) => void;
   onToggleFollowUpFavorite: (id: string) => void;
-  onRenameFollowUp: (id: string, newName: string) => void;
-  onChangeFollowUpChartType: (id: string, chartType: string) => void;
   onSelectFollowUp: (followUp: FollowUp) => void;
   onCopy: (query: SavedQuery) => void;
   onDelete: (id: string) => void;
+  onRunNewQuery?: (baseQuestion: string) => void;
   formatDate: (timestamp: number) => string;
 }
 
@@ -41,11 +39,10 @@ export function QueryDetailsView({
   onUpdate,
   onToggleFavorite,
   onToggleFollowUpFavorite,
-  onRenameFollowUp,
-  onChangeFollowUpChartType,
   onSelectFollowUp,
   onCopy,
   onDelete,
+  onRunNewQuery,
   formatDate,
 }: QueryDetailsViewProps) {
   if (!query) {
@@ -71,7 +68,6 @@ export function QueryDetailsView({
         onEditChange={onVisualizationEditChange}
         onEditSave={onVisualizationEditSave}
       />
-      <QueryDetails query={query} />
       <QueryActions
         query={query}
         onRerun={onRerun}
@@ -81,16 +77,16 @@ export function QueryDetailsView({
         onDelete={onDelete}
         isUpdating={isUpdating}
       />
-      {query.followUps && query.followUps.length > 0 && (
-        <FollowUpList
-          followUps={query.followUps}
+      <div className="mt-6">
+        <h3 className="text-lg font-semibold text-white mb-4">Query Chain</h3>
+        <QueryChain
+          query={query}
           onSelectFollowUp={onSelectFollowUp}
           onToggleFavorite={onToggleFollowUpFavorite}
-          onRenameFollowUp={onRenameFollowUp}
-          onChangeChartType={onChangeFollowUpChartType}
+          onRunNewQuery={onRunNewQuery}
           formatDate={formatDate}
         />
-      )}
+      </div>
     </div>
   );
 }

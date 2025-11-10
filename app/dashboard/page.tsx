@@ -86,7 +86,6 @@ function DashboardContent() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [result, setResult] = useState<NormalizedInsight | null>(null);
   const [followUpQuestion, setFollowUpQuestion] = useState("");
-  const [followUpName, setFollowUpName] = useState("");
   const [followUps, setFollowUps] = useState<FollowUp[]>([]); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [currentParentQueryId, setCurrentParentQueryId] = useState<
     string | null
@@ -119,6 +118,13 @@ function DashboardContent() {
       } catch (e) {
         logger.error("Failed to parse update payload", e);
       }
+    }
+
+    // Check if we have a pending question to pre-fill
+    const pendingQuestion = sessionStorage.getItem("pending-question");
+    if (pendingQuestion) {
+      setQuestion(pendingQuestion);
+      sessionStorage.removeItem("pending-question");
     }
   }, []);
 
@@ -508,7 +514,6 @@ function DashboardContent() {
             parentQueryId: currentParentQueryId,
             question: cleanedQuestion,
             result: normalized,
-            name: followUpName.trim() || undefined,
             chartType: chartType !== "auto" ? chartType : undefined,
             userId: user!.id,
           };
@@ -535,8 +540,6 @@ function DashboardContent() {
           console.error("Failed to save follow-up:", error);
         }
       }
-
-      setFollowUpName("");
     } catch (error) {
       logger.error("[n8n] Webhook request failed", error);
       if (error instanceof DOMException && error.name === "AbortError") {
@@ -676,9 +679,7 @@ function DashboardContent() {
               />
               <FollowUpForm
                 followUpQuestion={followUpQuestion}
-                followUpName={followUpName}
                 onFollowUpChange={setFollowUpQuestion}
-                onFollowUpNameChange={setFollowUpName}
                 onSubmit={handleSubmit}
                 disabled={disabled}
               />

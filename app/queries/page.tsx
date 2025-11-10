@@ -216,65 +216,15 @@ export default function QueriesPage() {
     window.location.href = "/dashboard";
   };
 
+  const handleRunNewQuery = (baseQuestion: string) => {
+    // Store the base question to pre-fill the query form in dashboard
+    sessionStorage.setItem("pending-question", baseQuestion);
+    window.location.href = "/dashboard";
+  };
+
   const handleSelectFollowUp = (followUp: FollowUp) => {
     // For now, just log. Later we can show follow-up details
     console.log("Selected follow-up:", followUp);
-  };
-
-  const handleRenameFollowUp = async (id: string, newName: string) => {
-    if (!user) return;
-    // Update local state
-    const updatedQueries = savedQueries.map((query) => {
-      if (query.followUps) {
-        const updatedFollowUps = query.followUps.map((followUp) =>
-          followUp.id === id
-            ? { ...followUp, name: newName || undefined }
-            : followUp
-        );
-        return { ...query, followUps: updatedFollowUps };
-      }
-      return query;
-    });
-    setSavedQueries(updatedQueries);
-
-    // Update in database
-    await fetch(`/api/follow-ups/${id}?userId=${user.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName || undefined }),
-    });
-  };
-
-  const handleChangeFollowUpChartType = async (
-    id: string,
-    chartType: string
-  ) => {
-    if (!user) return;
-    // Update local state
-    const updatedQueries = savedQueries.map((query) => {
-      if (query.followUps) {
-        const updatedFollowUps = query.followUps.map((followUp) =>
-          followUp.id === id
-            ? {
-                ...followUp,
-                chartType: chartType === "auto" ? undefined : chartType,
-              }
-            : followUp
-        );
-        return { ...query, followUps: updatedFollowUps };
-      }
-      return query;
-    });
-    setSavedQueries(updatedQueries);
-
-    // Update in database
-    await fetch(`/api/follow-ups/${id}?userId=${user.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chartType: chartType === "auto" ? undefined : chartType,
-      }),
-    });
   };
 
   const filteredQueries = savedQueries
@@ -356,8 +306,6 @@ export default function QueriesPage() {
                 onUpdate={handleUpdateGraph}
                 onToggleFavorite={handleToggleFavorite}
                 onToggleFollowUpFavorite={handleToggleFollowUpFavorite}
-                onRenameFollowUp={handleRenameFollowUp}
-                onChangeFollowUpChartType={handleChangeFollowUpChartType}
                 onSelectFollowUp={handleSelectFollowUp}
                 onCopy={(query) => {
                   const text = `${query.question}\n\n${JSON.stringify(
@@ -368,6 +316,7 @@ export default function QueriesPage() {
                   navigator.clipboard.writeText(text);
                 }}
                 onDelete={handleDeleteQuery}
+                onRunNewQuery={handleRunNewQuery}
                 formatDate={formatDate}
               />
             </div>
