@@ -63,6 +63,8 @@ export function AdminPanel({
     alert("Invitation link copied to clipboard!");
   };
 
+  const adminUsersCount = users.filter((user) => user.isAdmin).length;
+
   const toggleUserExpanded = (userId: string) => {
     setExpandedUser(expandedUser === userId ? null : userId);
   };
@@ -127,10 +129,10 @@ export function AdminPanel({
             </div>
             <div className="bg-slate-700 rounded-lg p-3 sm:p-4">
               <p className="text-xs sm:text-sm text-slate-400 mb-1">
-                Total Users
+                Admin Users
               </p>
               <p className="text-2xl sm:text-3xl font-bold text-green-400">
-                {totalUsers}
+                {adminUsersCount}
               </p>
             </div>
             <div className="bg-slate-700 rounded-lg p-3 sm:p-4 col-span-2 sm:col-span-1">
