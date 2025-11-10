@@ -18,7 +18,7 @@ interface QueryFormProps {
   onSubmit: (e: FormEvent<HTMLFormElement>) => void;
   disabled: boolean;
   errorMessage: string | null;
-  effectiveUrl: string;
+  canSubmit: boolean;
 }
 
 export function QueryForm({
@@ -29,7 +29,7 @@ export function QueryForm({
   onSubmit,
   disabled,
   errorMessage,
-  effectiveUrl,
+  canSubmit,
 }: QueryFormProps) {
   return (
     <form className="space-y-4 sm:space-y-6" onSubmit={onSubmit}>
@@ -42,7 +42,7 @@ export function QueryForm({
         </label>
         <textarea
           id="question"
-          placeholder="e.g. Show me how many students we had enrolled before July 2025"
+          placeholder="e.g. Show me how many students did we have enrolled before July 2025"
           value={question}
           onChange={(event) => onQuestionChange(event.target.value)}
           required
@@ -81,7 +81,7 @@ export function QueryForm({
       <div className="flex justify-center">
         <button
           type="submit"
-          disabled={disabled || !effectiveUrl}
+          disabled={disabled || !canSubmit}
           className="w-full sm:w-auto px-6 sm:px-8 py-2.5 sm:py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white text-sm sm:text-base font-medium rounded-lg focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
           {disabled ? "Contacting webhook…" : "Run workflow"}

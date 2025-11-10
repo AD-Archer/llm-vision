@@ -13,43 +13,52 @@ import { SaveSuccessMessage } from "./components/SaveSuccessMessage";
 function SettingsContent() {
   const { user, isAdmin } = useAuth();
   const { settings, updateSettings } = useSettings();
-  const [webhookUrl, setWebhookUrl] = useState("");
-  const [timeoutSeconds, setTimeoutSeconds] = useState(60);
   const [autoSaveQueries, setAutoSaveQueries] = useState(true);
-  const [webhookUsername, setWebhookUsername] = useState("");
-  const [webhookPassword, setWebhookPassword] = useState("");
+  const [timeoutEnabled, setTimeoutEnabled] = useState(false);
+  const [timeoutSeconds, setTimeoutSeconds] = useState(1800);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<"settings" | "admin">(
     isAdmin ? "admin" : "settings"
   );
 
   useEffect(() => {
-    setWebhookUrl(settings.webhookUrl);
-    setTimeoutSeconds(settings.timeoutSeconds);
     setAutoSaveQueries(settings.autoSaveQueries);
-    setWebhookUsername(settings.webhookUsername || "");
-    setWebhookPassword(settings.webhookPassword || "");
+    setTimeoutEnabled(settings.timeoutEnabled);
+    setTimeoutSeconds(settings.timeoutSeconds);
+    setSaveError(null);
   }, [settings]);
 
-  const handleSaveSettings = () => {
-    updateSettings({
-      webhookUrl,
-      timeoutSeconds,
-      autoSaveQueries,
-      webhookUsername,
-      webhookPassword,
-    });
+  const handleSaveSettings = async () => {
+    setSaveError(null);
+    setIsSaving(true);
+    try {
+      const updatePayload: Record<string, unknown> = {
+        autoSaveQueries,
+      };
 
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
+      if (isAdmin) {
+        updatePayload.timeoutEnabled = timeoutEnabled;
+        updatePayload.timeoutSeconds = timeoutSeconds;
+      }
+
+      await updateSettings(updatePayload, user!.id);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (error) {
+      setSaveError(
+        error instanceof Error ? error.message : "Failed to save settings."
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const isModified =
-    webhookUrl !== settings.webhookUrl ||
-    timeoutSeconds !== settings.timeoutSeconds ||
     autoSaveQueries !== settings.autoSaveQueries ||
-    webhookUsername !== (settings.webhookUsername || "") ||
-    webhookPassword !== (settings.webhookPassword || "");
+    (isAdmin && timeoutEnabled !== settings.timeoutEnabled) ||
+    (isAdmin && timeoutSeconds !== settings.timeoutSeconds);
 
   return (
     <ProtectedRoute>
@@ -67,34 +76,33 @@ function SettingsContent() {
             <SettingsForm
               email={user?.email}
               name={user?.name}
-              webhookUrl={webhookUrl}
-              onWebhookUrlChange={setWebhookUrl}
-              timeoutSeconds={timeoutSeconds}
-              onTimeoutChange={setTimeoutSeconds}
               autoSaveQueries={autoSaveQueries}
               onAutoSaveQueriesChange={setAutoSaveQueries}
-              webhookUsername={webhookUsername}
-              onWebhookUsernameChange={setWebhookUsername}
-              webhookPassword={webhookPassword}
-              onWebhookPasswordChange={setWebhookPassword}
               onSave={handleSaveSettings}
               onReset={() => {
-                setWebhookUrl(settings.webhookUrl);
-                setTimeoutSeconds(settings.timeoutSeconds);
                 setAutoSaveQueries(settings.autoSaveQueries);
-                setWebhookUsername(settings.webhookUsername || "");
-                setWebhookPassword(settings.webhookPassword || "");
               }}
               isModified={isModified}
+              isSaving={isSaving}
             />
           )}
 
-          {/* Admin Panel Tab */}
-          {activeTab === "admin" && (
-            <div className="bg-slate-800 rounded-lg border border-slate-700 p-3 sm:p-4 md:p-6">
-              <AdminPanel />
-            </div>
+          {/* Admin Panel Content */}
+          {activeTab === "admin" && isAdmin && (
+            <AdminPanel
+              timeoutEnabled={timeoutEnabled}
+              onTimeoutEnabledChange={setTimeoutEnabled}
+              timeoutSeconds={timeoutSeconds}
+              onTimeoutSecondsChange={setTimeoutSeconds}
+            />
           )}
+
+          {/* Validation/Error Feedback */}
+          {saveError ? (
+            <div className="mt-4 bg-red-900/30 border border-red-500 text-red-200 px-4 py-3 rounded-lg text-sm">
+              {saveError}
+            </div>
+          ) : null}
 
           {/* Success Message */}
           {saveSuccess && <SaveSuccessMessage />}

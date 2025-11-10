@@ -11,22 +11,38 @@ import React, {
 export interface AppSettings {
   webhookUrl: string;
   timeoutSeconds: number;
+  timeoutEnabled: boolean;
   autoSaveQueries: boolean;
   webhookUsername?: string;
   webhookPassword?: string;
+  webhookHeaders?: Record<string, string> | null;
+  promptHelperWebhookUrl: string;
+  promptHelperUsername?: string;
+  promptHelperPassword?: string;
+  promptHelperHeaders?: Record<string, string> | null;
 }
 
 export interface SettingsContextType {
   settings: AppSettings;
-  updateSettings: (updates: Partial<AppSettings>) => void;
+  isLoading: boolean;
+  updateSettings: (
+    updates: Partial<AppSettings>,
+    userId: string
+  ) => Promise<void>;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
-  webhookUrl: process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL ?? "",
-  timeoutSeconds: 60,
+  webhookUrl: "",
+  timeoutSeconds: 1800, // 30 minutes - consolidated timeout
+  timeoutEnabled: false, // disabled by default
   autoSaveQueries: true,
-  webhookUsername: process.env.NEXT_PUBLIC_WEBHOOK_USERNAME ?? "",
-  webhookPassword: process.env.NEXT_PUBLIC_WEBHOOK_PASSWORD ?? "",
+  webhookUsername: "",
+  webhookPassword: "",
+  webhookHeaders: null,
+  promptHelperWebhookUrl: "",
+  promptHelperUsername: "",
+  promptHelperPassword: "",
+  promptHelperHeaders: null,
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(
@@ -37,34 +53,90 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-  const [isHydrated, setIsHydrated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [lastFetchError, setLastFetchError] = useState<string | null>(null);
 
-  // Initialize settings from localStorage
   useEffect(() => {
-    const storedSettings = localStorage.getItem("llm-visi-settings");
-    if (storedSettings) {
+    let cancelled = false;
+    const fetchSettings = async () => {
+      setIsLoading(true);
       try {
-        setSettings(JSON.parse(storedSettings));
-      } catch (e) {
-        console.error("Failed to parse stored settings", e);
+        const response = await fetch("/api/settings", {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to load settings (${response.status})`);
+        }
+        const data = (await response.json()) as AppSettings;
+        if (!cancelled) {
+          setSettings({
+            ...DEFAULT_SETTINGS,
+            ...data,
+          });
+          setLastFetchError(null);
+        }
+      } catch (error) {
+        console.error("[settings] Failed to load settings", error);
+        if (!cancelled) {
+          setLastFetchError(
+            error instanceof Error ? error.message : "Unknown error"
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
-    }
-    setIsHydrated(true);
+    };
+
+    fetchSettings();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const updateSettings = (updates: Partial<AppSettings>) => {
-    const newSettings = { ...settings, ...updates };
-    setSettings(newSettings);
-    localStorage.setItem("llm-visi-settings", JSON.stringify(newSettings));
+  const updateSettings = async (
+    updates: Partial<AppSettings>,
+    userId: string
+  ) => {
+    const previousSettings = settings;
+    const payload = { ...settings, ...updates, userId };
+    setSettings(payload);
+
+    const response = await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const message = await response.text();
+      const error = message || "Failed to update settings.";
+      console.error("[settings] Update failed", error);
+      setSettings(previousSettings);
+      throw new Error(error);
+    }
+
+    const data = (await response.json()) as AppSettings;
+    setSettings({ ...DEFAULT_SETTINGS, ...data });
   };
 
-  if (!isHydrated) {
-    return <>{children}</>;
-  }
-
   return (
-    <SettingsContext.Provider value={{ settings, updateSettings }}>
+    <SettingsContext.Provider
+      value={{
+        settings,
+        updateSettings,
+        isLoading,
+      }}
+    >
       {children}
+      {lastFetchError ? (
+        <div className="fixed bottom-4 right-4 bg-red-600 text-white text-sm px-4 py-2 rounded shadow-lg">
+          Failed to load settings: {lastFetchError}
+        </div>
+      ) : null}
     </SettingsContext.Provider>
   );
 };

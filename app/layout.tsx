@@ -3,6 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "../context/AuthContext";
 import { SettingsProvider } from "../context/SettingsContext";
 import { AdminProvider } from "../context/AdminContext";
+import { QueryProvider } from "../context/QueryContext";
 import { Navbar } from "../components/Navbar";
 
 export const metadata: Metadata = {
@@ -28,10 +29,12 @@ export default function RootLayout({
       <body>
         <AuthProvider>
           <SettingsProvider>
-            <AdminProvider>
-              <Navbar />
-              {children}
-            </AdminProvider>
+            <QueryProvider>
+              <AdminProvider>
+                <Navbar />
+                {children}
+              </AdminProvider>
+            </QueryProvider>
           </SettingsProvider>
         </AuthProvider>
       </body>

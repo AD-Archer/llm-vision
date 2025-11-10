@@ -13,6 +13,8 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
+# Generate Prisma Client (postinstall scripts are disabled in this environment)
+RUN pnpm prisma generate
 
 # Copy source code
 COPY . .
@@ -36,11 +38,14 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Install production dependencies only
 RUN pnpm install --frozen-lockfile --prod
+# Generate Prisma Client for runtime
+RUN pnpm prisma generate
 
 # Copy built application from builder
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.js ./
+COPY --from=builder /app/prisma ./prisma
 
 # Expose port 3000
 EXPOSE 3000
@@ -49,5 +54,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD node -e "require('http').get('http://localhost:3000', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
 
-# Start the application
-CMD ["pnpm", "start"]
+# Run migrations then start the application
+CMD ["sh", "-c", "pnpm prisma migrate deploy && pnpm start"]

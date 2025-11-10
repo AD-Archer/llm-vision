@@ -3,6 +3,8 @@ interface AdvancedSettingsProps {
   onSessionIdChange: (id: string) => void;
   onSessionReset: () => void;
   disabled: boolean;
+  isAdmin?: boolean;
+  onShowRawJsonInput?: () => void;
 }
 
 export function AdvancedSettings({
@@ -10,6 +12,8 @@ export function AdvancedSettings({
   onSessionIdChange,
   onSessionReset,
   disabled,
+  isAdmin = false,
+  onShowRawJsonInput,
 }: AdvancedSettingsProps) {
   return (
     <details className="bg-slate-700 rounded-lg p-4 border border-slate-600">
@@ -47,6 +51,20 @@ export function AdvancedSettings({
             Persisted locally so your AI memory stays in sync.
           </p>
         </div>
+        {isAdmin && onShowRawJsonInput && (
+          <div>
+            <button
+              type="button"
+              onClick={onShowRawJsonInput}
+              className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              Paste Raw JSON
+            </button>
+            <p className="text-xs text-slate-400 mt-1">
+              Import AI response data without sending to webhook.
+            </p>
+          </div>
+        )}
       </div>
     </details>
   );

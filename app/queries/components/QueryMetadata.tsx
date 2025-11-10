@@ -1,7 +1,9 @@
 import type { SavedQuery } from "./QueriesList";
+import type { FollowUp } from "../../../types";
+import { Star } from "lucide-react";
 
 interface QueryMetadataProps {
-  query: SavedQuery;
+  query: SavedQuery | FollowUp;
   formatDate: (timestamp: number) => string;
 }
 
@@ -32,8 +34,15 @@ export function QueryMetadata({ query, formatDate }: QueryMetadataProps) {
         </div>
         <div className="bg-slate-900 p-2 sm:p-3 rounded-lg">
           <p className="text-xs text-slate-400">Status</p>
-          <p className="text-xs sm:text-sm text-white mt-1">
-            {query.isFavorite ? "⭐ Favorite" : "Regular"}
+          <p className="text-xs sm:text-sm text-white mt-1 flex items-center gap-1">
+            {query.isFavorite ? (
+              <>
+                <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                Favorite
+              </>
+            ) : (
+              "Regular"
+            )}
           </p>
         </div>
       </div>

@@ -1,4 +1,6 @@
 import type { NormalizedInsight } from "../../../utils/chartConfig";
+import type { FollowUp } from "../../../types";
+import { Star, Inbox } from "lucide-react";
 
 export interface SavedQuery {
   id: string;
@@ -8,6 +10,9 @@ export interface SavedQuery {
   updatedAt: number;
   isFavorite: boolean;
   visualizationName?: string;
+  userName?: string;
+  userEmail?: string;
+  followUps?: FollowUp[];
 }
 
 interface QueriesListProps {
@@ -27,7 +32,7 @@ export function QueriesList({
     return (
       <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
         <div className="p-6 sm:p-8 text-center">
-          <div className="text-3xl sm:text-4xl mb-3">📭</div>
+          <Inbox className="w-16 h-16 mx-auto mb-3 text-slate-400" />
           <p className="text-slate-400 text-sm sm:text-base">
             No saved queries yet. Start by asking questions in the dashboard!
           </p>
@@ -49,7 +54,7 @@ export function QueriesList({
           >
             <div className="flex items-start gap-2">
               {query.isFavorite && (
-                <span className="text-yellow-400 flex-shrink-0 mt-0.5">★</span>
+                <Star className="text-yellow-400 flex-shrink-0 mt-0.5 w-4 h-4 fill-current" />
               )}
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-white line-clamp-2">
@@ -60,6 +65,11 @@ export function QueriesList({
                 <p className="text-xs text-slate-400 mt-1 line-clamp-1 overflow-hidden text-ellipsis">
                   {query.question}
                 </p>
+                {query.userName && (
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    By {query.userName}
+                  </p>
+                )}
                 <p className="text-xs text-slate-500 mt-1">
                   Updated {formatDate(query.updatedAt)}
                 </p>

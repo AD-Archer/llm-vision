@@ -25,19 +25,21 @@ This project is a lightweight dashboard that talks to an n8n RAG workflow via we
    pnpm install
    ```
 
-3. **Create environment file:**
-   Create a `.env` file in the root directory:
+3. **Create your environment file**
 
    ```bash
-   touch .env.local
+   cp .env.example .env
    ```
 
-   Add your n8n webhook URL and optional timeout:
+   Update the `DATABASE_URL` value so Prisma can connect to your Postgres instance. The default in the example file works with `docker-compose` (postgres/postgres credentials).
 
-   ```env
-   NEXT_PUBLIC_N8N_WEBHOOK_URL=https://your-instance.n8n.cloud/webhook/your-webhook-id
-   NEXT_PUBLIC_WEBHOOK_TIMEOUT_MS=30000
+4. **Apply database migrations**
+
+   ```bash
+   pnpm db:migrate
    ```
+
+   This boots Prisma, creates the `AppSetting` table, and inserts the default row used by the Settings UI.
 
 ## Setup n8n Workflow
 
@@ -60,8 +62,8 @@ This project is a lightweight dashboard that talks to an n8n RAG workflow via we
    - After importing and configuring credentials, activate the workflow
    - Note the webhook URL from the "Webhook" node (it should end with `/webhook/llm-visi-dash`)
 
-4. **Update your `.env` file:**
-   Replace the placeholder webhook URL with your actual n8n webhook URL.
+4. **Update the dashboard Settings:**
+   Launch the app, head to **Settings → API Configuration**, and paste your webhook URL (plus optional credentials). The values are stored in Postgres so they survive deployments without living in `.env`.
 
 ## Quick start
 
@@ -73,16 +75,25 @@ pnpm dev
 
 The development server runs at http://localhost:3000 by default.
 
+## Docker
+
+Launch the full stack (Next.js app + Postgres) with:
+
+```bash
+docker-compose up --build
+```
+
+The compose file provisions a `postgres:16-alpine` container, runs Prisma migrations on startup, and exposes the UI at `http://localhost:3000`. Override the default `DATABASE_URL` by exporting it before running Compose if you need a different password/host.
+
 ## Configure the webhook
 
-Set the webhook URL either:
+1. Run the app (`pnpm dev`) and sign in.
+2. Open **Settings → API Configuration**.
+3. Enter your webhook URL, timeout (5–300 seconds), and optional basic-auth credentials.
 
-- in a `.env` file: `VITE_N8N_WEBHOOK_URL=https://your-instance.n8n.cloud/webhook/...`, or
-- directly in the dashboard UI (the input is persisted only in memory).
+These values are written to Postgres via Prisma and never embedded in your client bundle anymore. Every dashboard query now goes through `/api/query`, which proxies the request server-side so the webhook URL, username, and password stay private.
 
-If your workflow needs more time, set `VITE_WEBHOOK_TIMEOUT_MS` (or adjust the "Request timeout" field in the UI). The dashboard aborts the request once the configured timeout elapses.
-
-The UI keeps a session ID in local storage (`sessionId` in the payload) so memory-aware agents can stitch conversations together. Use the "New ID" button to start a fresh session.
+The UI still keeps a session ID in local storage (`sessionId` in the payload) so memory-aware agents can stitch conversations together. Use the "New ID" button to start a fresh session.
 
 ## Features
 
@@ -192,26 +203,26 @@ You can force a specific chart type by returning `chart.type` or by selecting an
 1. Push your code to GitHub
 2. Connect your repository to Vercel
 3. Add environment variables in Vercel dashboard:
-   - `NEXT_PUBLIC_N8N_WEBHOOK_URL`
-   - `NEXT_PUBLIC_WEBHOOK_TIMEOUT_MS`
-4. Deploy
+   - `DATABASE_URL` — connection string for your managed Postgres instance (Supabase, Neon, RDS, etc.)
+4. Deploy (Prisma migrations run automatically at boot because the Dockerfile and `start` command execute `prisma migrate deploy` before `next start`)
 
 ### Other Platforms
 
-Build the static site with:
+Build and start the production server manually:
 
 ```bash
-npm run build
+pnpm build
+DATABASE_URL="postgresql://..." pnpm start
 ```
 
-Then deploy the contents of `.next/` to any static host or server that supports Next.js.
+Set `DATABASE_URL` in your hosting platform so Prisma can run `migrate deploy` before `next start`.
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Webhook timeout**: Increase `VITE_WEBHOOK_TIMEOUT_MS` in your `.env` file
-2. **CORS errors**: Ensure your n8n instance allows requests from your dashboard domain
+1. **Webhook timeout**: Increase the "Request Timeout" field in Settings (values sync to Postgres and control the `/api/query` proxy).
+2. **Proxy errors (502/504)**: Ensure your n8n instance is reachable from the Next.js server (or Docker network) and that the credentials you saved in Settings are still valid.
 3. **No response**: Check that the workflow is active and credentials are configured
 4. **Chart not rendering**: Verify the JSON response matches the expected format
 
@@ -219,14 +230,14 @@ Then deploy the contents of `.next/` to any static host or server that supports 
 
 ```bash
 # Run in development mode
-npm run dev
+pnpm dev
 
 # Build for production
-npm run build
+pnpm build
 
 # Start production server
-npm run start
+pnpm start
 
 # Lint code
-npm run lint
+pnpm lint
 ```

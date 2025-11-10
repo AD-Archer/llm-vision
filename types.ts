@@ -38,6 +38,7 @@ export interface UserStats {
   lastActive: string;
   status: "active" | "inactive" | "invited";
   invitationSentAt?: string;
+  isAdmin?: boolean;
 }
 
 export interface UserFeatures {
@@ -46,6 +47,25 @@ export interface UserFeatures {
   apiAccessEnabled: boolean;
   advancedChartsEnabled: boolean;
   customWebhooksEnabled: boolean;
+}
+
+// Follow-up Types
+export interface FollowUp {
+  id: string;
+  parentQueryId: string;
+  parentFollowUpId?: string;
+  question: string;
+  result: {
+    raw: InsightResponse;
+    insightText: string;
+    chart?: ChartConfig;
+  };
+  name?: string;
+  isFavorite: boolean;
+  chartType?: string;
+  createdAt: number;
+  updatedAt: number;
+  followUps?: FollowUp[]; // For nested follow-ups
 }
 
 export interface InvitationCode {

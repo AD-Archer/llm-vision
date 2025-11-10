@@ -14,12 +14,17 @@ export interface AdminContextType {
   userFeatures: Record<string, UserFeatures>;
   invitationCodes: InvitationCode[];
   totalUsers: number;
-  activeUsers: number;
   totalQueries: number;
 
   // User management
   addUser: (email: string, name: string) => Promise<void>;
   removeUser: (userId: string) => Promise<void>;
+  makeAdmin: (userId: string, adminUserId: string) => Promise<void>;
+  resetPassword: (
+    userId: string,
+    newPassword: string,
+    adminUserId: string
+  ) => Promise<void>;
   updateUserQueryCount: (userId: string, count: number) => void;
 
   // Features management
@@ -85,6 +90,40 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({
     }
   }, []);
 
+  // Initialize invitation codes from API
+  useEffect(() => {
+    const loadInvitationCodes = async () => {
+      try {
+        const response = await fetch("/api/admin/invitation-codes");
+        if (response.ok) {
+          const codes = await response.json();
+          setInvitationCodes(codes);
+        }
+      } catch (error) {
+        console.error("Failed to load invitation codes", error);
+      }
+    };
+
+    loadInvitationCodes();
+  }, []);
+
+  // Initialize users from API
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const response = await fetch("/api/admin/users");
+        if (response.ok) {
+          const usersData = await response.json();
+          setUsers(usersData);
+        }
+      } catch (error) {
+        console.error("Failed to load users", error);
+      }
+    };
+
+    loadUsers();
+  }, []);
+
   // Save to localStorage whenever data changes
   useEffect(() => {
     localStorage.setItem("llm-visi-admin-users", JSON.stringify(users));
@@ -137,6 +176,41 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({
     });
   };
 
+  const resetPassword = async (
+    userId: string,
+    newPassword: string,
+    adminUserId: string
+  ) => {
+    const response = await fetch(`/api/admin/users/${userId}/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ newPassword, adminUserId }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to reset password");
+    }
+  };
+
+  const makeAdmin = async (userId: string, adminUserId: string) => {
+    const response = await fetch("/api/admin/make-admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: adminUserId, targetUserId: userId }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to make user admin");
+    }
+
+    // Update the user in the local state
+    setUsers((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, isAdmin: true } : u))
+    );
+  };
+
   const updateUserQueryCount = (userId: string, count: number) => {
     setUsers((prev) =>
       prev.map((u) =>
@@ -170,53 +244,35 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const generateInvitationCode = async (): Promise<InvitationCode> => {
-    const code = Math.random().toString(36).substring(2, 10).toUpperCase();
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    const response = await fetch("/api/admin/invitation-codes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expiresInDays: 7 }),
+    });
 
-    const invitation: InvitationCode = {
-      code,
-      createdAt: now.toISOString(),
-      expiresAt: expiresAt.toISOString(),
-    };
+    if (!response.ok) {
+      throw new Error("Failed to generate invitation code");
+    }
 
-    setInvitationCodes((prev) => [...prev, invitation]);
-    return invitation;
+    const data = await response.json();
+    setInvitationCodes((prev) => [...prev, data]);
+    return data;
   };
 
-  const useInvitationCode = async (code: string, email: string) => {
-    const invitation = invitationCodes.find((inv) => inv.code === code);
-
-    if (!invitation) {
-      return false;
-    }
-
-    if (new Date(invitation.expiresAt) < new Date()) {
-      return false; // Expired
-    }
-
-    if (invitation.usedBy) {
-      return false; // Already used
-    }
-
-    // Mark invitation as used and add user
-    setInvitationCodes((prev) =>
-      prev.map((inv) =>
-        inv.code === code
-          ? {
-              ...inv,
-              usedBy: email,
-              usedAt: new Date().toISOString(),
-            }
-          : inv
-      )
-    );
-
-    await addUser(email, email.split("@")[0]);
+  const useInvitationCode = async (_code: string, _email: string) => {
+    // This is now handled in the registration API
     return true;
   };
 
-  const revokeInvitationCode = (code: string) => {
+  const revokeInvitationCode = async (code: string) => {
+    const response = await fetch(`/api/admin/invitation-codes/${code}`, {
+      method: "PATCH",
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to revoke invitation code");
+    }
+
     setInvitationCodes((prev) => prev.filter((inv) => inv.code !== code));
   };
 
@@ -225,7 +281,6 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const totalUsers = users.length;
-  const activeUsers = users.filter((u) => u.status === "active").length;
   const totalQueries = users.reduce((sum, u) => sum + u.queryCount, 0);
 
   const value: AdminContextType = {
@@ -233,10 +288,11 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({
     userFeatures,
     invitationCodes,
     totalUsers,
-    activeUsers,
     totalQueries,
     addUser,
     removeUser,
+    makeAdmin,
+    resetPassword,
     updateUserQueryCount,
     updateUserFeatures,
     getUserFeatures,

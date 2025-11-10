@@ -1,22 +1,24 @@
 interface SettingsActionButtonsProps {
-  onSave: () => void;
+  onSave: () => void | Promise<void>;
   onReset: () => void;
   isModified: boolean;
+  isSaving?: boolean;
 }
 
 export function SettingsActionButtons({
   onSave,
   onReset,
   isModified,
+  isSaving = false,
 }: SettingsActionButtonsProps) {
   return (
     <div className="p-3 sm:p-4 md:p-6 bg-slate-900 flex flex-col sm:flex-row gap-2 sm:gap-4">
       <button
         onClick={onSave}
-        disabled={!isModified}
+        disabled={!isModified || isSaving}
         className="px-4 sm:px-6 py-2 sm:py-2.5 bg-blue-600 hover:bg-blue-700 text-xs sm:text-sm text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        Save Changes
+        {isSaving ? "Saving…" : "Save Changes"}
       </button>
       <button
         onClick={onReset}

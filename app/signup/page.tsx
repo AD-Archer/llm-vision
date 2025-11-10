@@ -1,74 +1,44 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
-import { useAdmin } from "../../context/AdminContext";
-import {
-  SignupHeader,
-  ProgressSteps,
-  InvitationCodeForm,
-  AccountDetailsForm,
-  SignupCard,
-  SignupFooter,
-} from "./components";
 
 function SignupPageContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [invitationCode, setInvitationCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [step, setStep] = useState<"code" | "details">("code");
-  const [isCodeValid, setIsCodeValid] = useState(false);
-  const { login, isAuthenticated } = useAuth();
-  const { useInvitationCode: verifyInvitationCode } = useAdmin();
+  const [requiresInvitation, setRequiresInvitation] = useState(false);
+  const { register } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
 
-  // Use useEffect for redirect to avoid setState during render
+  // Check if users exist to determine if invitation is required
   useEffect(() => {
-    if (isAuthenticated) {
-      router.push("/onboarding");
-    }
-  }, [isAuthenticated, router]);
+    const checkUserCount = async () => {
+      try {
+        const response = await fetch("/api/auth/check-users");
+        if (response.ok) {
+          const data = await response.json();
+          setRequiresInvitation(data.userCount > 0);
+        }
+      } catch (error) {
+        console.error("Failed to check user count", error);
+      }
+    };
 
-  // Check if invitation code was passed in URL
-  useEffect(() => {
-    const codeFromUrl = searchParams.get("code");
-    if (codeFromUrl) {
-      setInvitationCode(codeFromUrl.toUpperCase());
-      // Auto-validate if provided in URL
-      validateCode(codeFromUrl.toUpperCase());
-    }
-  }, [searchParams]);
+    checkUserCount();
 
-  const validateCode = (code: string) => {
-    // This will be validated properly when submitting
-    if (code && code.length === 8) {
-      setIsCodeValid(true);
-      setError(null);
-    } else {
-      setIsCodeValid(false);
-      setError("Invitation code must be 8 characters");
+    // Check for invitation code in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get("code");
+    if (code) {
+      setInvitationCode(code.toUpperCase());
     }
-  };
-
-  const handleCodeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    if (invitationCode.length !== 8) {
-      setError("Please enter a valid 8-character code");
-      return;
-    }
-
-    // Move to details step - actual validation happens on signup
-    validateCode(invitationCode);
-    if (isCodeValid || invitationCode.length === 8) {
-      setStep("details");
-    }
-  };
+  }, []);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,88 +46,186 @@ function SignupPageContent() {
     setIsLoading(true);
 
     try {
-      if (!email || !password) {
-        throw new Error("Email and password are required");
+      if (!email || !password || !name) {
+        throw new Error("All fields are required");
       }
 
       if (password.length < 6) {
         throw new Error("Password must be at least 6 characters");
       }
 
-      // Verify invitation code
-      const isValid = await verifyInvitationCode(
-        invitationCode.toUpperCase(),
-        email
-      );
-
-      if (!isValid) {
-        throw new Error(
-          "Invalid or expired invitation code. Please check and try again."
-        );
+      if (password !== confirmPassword) {
+        throw new Error("Passwords do not match");
       }
 
-      // Log in the user
-      await login(email, password);
-      router.push("/onboarding");
+      if (requiresInvitation && !invitationCode) {
+        throw new Error("Invitation code is required");
+      }
+
+      const requiresSetup = await register(
+        email,
+        password,
+        name,
+        requiresInvitation ? invitationCode : undefined
+      );
+
+      // Redirect based on whether setup is required
+      if (requiresSetup) {
+        router.push("/setup");
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Signup failed");
+      setError(err instanceof Error ? err.message : "Registration failed");
+    } finally {
       setIsLoading(false);
     }
   };
 
-  // Show nothing while redirecting
-  if (isAuthenticated) {
-    return null;
-  }
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 px-3 sm:px-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <SignupHeader />
+        <div className="bg-slate-800 rounded-lg border border-slate-700 p-8">
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-bold text-white mb-2">
+              Create Account
+            </h1>
+            <p className="text-slate-400">
+              {requiresInvitation
+                ? "Enter your invitation code to create an account."
+                : "The first user to register will become the admin."}
+            </p>
+          </div>
 
-        <SignupCard>
-          <ProgressSteps step={step} isCodeValid={isCodeValid} />
+          <form onSubmit={handleSignup} className="space-y-6">
+            <div>
+              <label
+                htmlFor="name"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
+                Full Name
+              </label>
+              <input
+                id="name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                placeholder="Enter your full name"
+                required
+              />
+            </div>
 
-          {step === "code" ? (
-            <InvitationCodeForm
-              invitationCode={invitationCode}
-              error={error}
-              isLoading={isLoading}
-              onCodeChange={(code) => {
-                setInvitationCode(code);
-                if (code.length === 8) {
-                  validateCode(code);
-                }
-              }}
-              onSubmit={handleCodeSubmit}
-            />
-          ) : (
-            <AccountDetailsForm
-              email={email}
-              password={password}
-              error={error}
-              isLoading={isLoading}
-              onEmailChange={setEmail}
-              onPasswordChange={setPassword}
-              onBack={() => {
-                setStep("code");
-                setError(null);
-              }}
-              onSubmit={handleSignup}
-            />
-          )}
-        </SignupCard>
+            <div>
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                placeholder="Enter your email"
+                required
+              />
+            </div>
 
-        <SignupFooter />
+            <div>
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                placeholder="Enter your password"
+                required
+                minLength={6}
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="confirmPassword"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
+                Confirm Password
+              </label>
+              <input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                placeholder="Confirm your password"
+                required
+              />
+            </div>
+
+            {requiresInvitation && (
+              <div>
+                <label
+                  htmlFor="invitationCode"
+                  className="block text-sm font-medium text-slate-300 mb-2"
+                >
+                  Invitation Code
+                </label>
+                <input
+                  id="invitationCode"
+                  type="text"
+                  value={invitationCode}
+                  onChange={(e) =>
+                    setInvitationCode(e.target.value.toUpperCase().slice(0, 8))
+                  }
+                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 uppercase tracking-widest text-center font-mono focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  placeholder="XXXXXXXX"
+                  required
+                  maxLength={8}
+                />
+                <p className="text-xs text-slate-400 mt-1">
+                  You should have received an 8-character code from your admin
+                </p>
+              </div>
+            )}
+
+            {error && (
+              <div className="bg-red-600 text-white text-sm px-4 py-3 rounded-lg">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-medium py-3 px-4 rounded-lg transition-colors"
+            >
+              {isLoading ? "Creating Account..." : "Create Account"}
+            </button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-slate-400 text-sm">
+              Already have an account?{" "}
+              <a href="/login" className="text-blue-400 hover:text-blue-300">
+                Sign in
+              </a>
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
 export default function SignupPage() {
-  return (
-    <Suspense fallback={null}>
-      <SignupPageContent />
-    </Suspense>
-  );
+  return <SignupPageContent />;
 }

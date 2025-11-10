@@ -1,0 +1,80 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AppSetting {
+  id                       String   @id @default(cuid())
+  webhookUrl               String   @default("")
+  webhookUsername          String?
+  webhookPassword          String?
+  webhookHeaders           Json?    // Optional headers as key-value pairs for OAuth etc.
+  promptHelperWebhookUrl   String   @default("")
+  promptHelperUsername     String?
+  promptHelperPassword     String?
+  promptHelperHeaders      Json?    // Optional headers as key-value pairs
+  timeoutSeconds           Int      @default(1800) // 30 minutes - consolidated timeout
+  timeoutEnabled           Boolean  @default(false) // disabled by default
+  autoSaveQueries          Boolean  @default(true)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String   // Hashed password
+  isAdmin   Boolean  @default(false)
+  queryCount Int     @default(0)
+  savedQueries SavedQuery[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model InvitationCode {
+  code      String   @id
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  usedBy    String?
+  usedAt    DateTime?
+  revoked   Boolean  @default(false)
+}
+
+model SavedQuery {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question         String
+  result           Json
+  visualizationName String?
+  isFavorite       Boolean  @default(false)
+  deleted          Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  followUps        FollowUp[]
+
+  @@map("saved_queries")
+}
+
+model FollowUp {
+  id               String     @id @default(cuid())
+  parentQueryId    String
+  parentQuery      SavedQuery @relation(fields: [parentQueryId], references: [id], onDelete: Cascade)
+  parentFollowUpId String?
+  parentFollowUp   FollowUp?  @relation("FollowUpChain", fields: [parentFollowUpId], references: [id], onDelete: Cascade)
+  followUps        FollowUp[] @relation("FollowUpChain")
+  question         String
+  result           Json
+  name             String?
+  isFavorite       Boolean    @default(false)
+  chartType        String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@map("follow_ups")
+}
