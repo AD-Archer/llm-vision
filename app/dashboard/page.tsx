@@ -2,17 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import type {
-  ChartType,
-  InsightResponse,
-  QueryRequestBody,
-  FollowUp,
-} from "../../types";
-import {
-  normalizeInsight,
-  type NormalizedInsight,
-} from "../../utils/chartConfig";
+import type { ChartType, QueryRequestBody, FollowUp } from "../../types";
+import type { NormalizedInsight } from "../../utils/chartConfig";
 import { useSettings } from "../../context/SettingsContext";
+import { useQuery } from "../../context/QueryContext";
 import { logger } from "../../utils/logger";
 import { ProtectedRoute } from "../../components/ProtectedRoute";
 import { useAuth } from "../../context/AuthContext";
@@ -22,8 +15,6 @@ import { ResultDisplay } from "./components/ResultDisplay";
 import { FollowUpForm } from "./components/FollowUpForm";
 import { SavedQueriesList } from "./components/SavedQueriesList";
 import { RawJsonInput } from "./components/RawJsonInput";
-
-const SESSION_STORAGE_KEY = "llm-visi-session-id";
 
 const createSessionId = () => {
   if (
@@ -35,21 +26,6 @@ const createSessionId = () => {
   return `session-${Math.random().toString(36).slice(2, 11)}`;
 };
 
-const extractJsonPayload = (raw: string) => {
-  const trimmed = raw.trim();
-  if (!trimmed) return trimmed;
-  if (trimmed.startsWith("```")) {
-    const match = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-    if (match?.[1]) {
-      logger.warn("[n8n] Stripped markdown fences from response payload.");
-      return match[1];
-    }
-  }
-  return trimmed;
-};
-
-type FetchState = "idle" | "loading" | "success" | "error";
-
 export interface SavedItem {
   id: string;
   question: string;
@@ -59,8 +35,6 @@ export interface SavedItem {
   isFavorite: boolean;
   visualizationName?: string;
 }
-
-const AVERAGE_QUERY_DURATION_SECONDS = 7 * 60;
 
 const formatDuration = (totalSeconds: number) => {
   const minutes = Math.floor(totalSeconds / 60)
@@ -73,18 +47,19 @@ const formatDuration = (totalSeconds: number) => {
 function DashboardContent() {
   const { settings } = useSettings();
   const { user } = useAuth();
-  const [question, setQuestion] = useState("");
-  const [chartType, setChartType] = useState<ChartType>("auto");
-  const [sessionId, setSessionId] = useState<string>(() => {
-    if (typeof window === "undefined") {
-      return createSessionId();
-    }
-    const stored = window.localStorage.getItem(SESSION_STORAGE_KEY);
-    return stored && stored.trim() ? stored : createSessionId();
-  });
-  const [fetchState, setFetchState] = useState<FetchState>("idle");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [result, setResult] = useState<NormalizedInsight | null>(null);
+  const { queryState, startQuery, cancelQuery, updateQueryState } = useQuery();
+  const question = queryState.question;
+  const setQuestion = (q: string) => updateQueryState({ question: q });
+  const chartType = queryState.chartType;
+  const setChartType = (ct: ChartType) => updateQueryState({ chartType: ct });
+  const sessionId = queryState.sessionId;
+  const setSessionId = (sid: string) => updateQueryState({ sessionId: sid });
+  const fetchState = queryState.fetchState;
+  const errorMessage = queryState.errorMessage;
+  const result = queryState.result;
+  const countdown = queryState.countdown;
+  const timeoutReached = queryState.timeoutReached;
+
   const [followUpQuestion, setFollowUpQuestion] = useState("");
   const [followUps, setFollowUps] = useState<FollowUp[]>([]); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [currentParentQueryId, setCurrentParentQueryId] = useState<
@@ -95,11 +70,7 @@ function DashboardContent() {
     string | null
   >(null);
   const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
-  const [countdown, setCountdown] = useState(AVERAGE_QUERY_DURATION_SECONDS);
   const [showRawJsonInput, setShowRawJsonInput] = useState(false);
-  const [timeoutReached, setTimeoutReached] = useState(false);
-  const [abortController, setAbortController] =
-    useState<AbortController | null>(null);
 
   const disabled = fetchState === "loading";
   const webhookUrl = settings.webhookUrl?.trim();
@@ -126,82 +97,12 @@ function DashboardContent() {
       setQuestion(pendingQuestion);
       sessionStorage.removeItem("pending-question");
     }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !sessionId) return;
-    window.localStorage.setItem(SESSION_STORAGE_KEY, sessionId);
-  }, [sessionId]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !user) return;
-    // Load saved queries from API
-    fetch(`/api/queries?userId=${user.id}`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to load queries");
-        return res.json();
-      })
-      .then((data) => {
-        const items: SavedItem[] = data.map((q: unknown) => {
-          const query = q as {
-            id: string;
-            question: string;
-            result: NormalizedInsight;
-            createdAt: string;
-            updatedAt: string;
-            isFavorite: boolean;
-            visualizationName?: string;
-          };
-          return {
-            id: query.id,
-            question: query.question,
-            result: query.result,
-            createdAt: new Date(query.createdAt).getTime(),
-            updatedAt: new Date(query.updatedAt).getTime(),
-            isFavorite: query.isFavorite,
-            visualizationName: query.visualizationName,
-          };
-        });
-        setSavedItems(items);
-      })
-      .catch((error) => logger.error("Failed to load saved queries:", error));
-  }, [user]);
-
-  useEffect(() => {
-    let intervalId: number | null = null;
-    if (fetchState === "loading") {
-      setCountdown(AVERAGE_QUERY_DURATION_SECONDS);
-      setTimeoutReached(false);
-      intervalId = window.setInterval(() => {
-        setCountdown((prev) => {
-          const newValue = prev > 0 ? prev - 1 : 0;
-          // Check if timeout should be triggered
-          if (
-            settings.timeoutEnabled &&
-            AVERAGE_QUERY_DURATION_SECONDS - newValue >= settings.timeoutSeconds
-          ) {
-            setTimeoutReached(true);
-          }
-          return newValue;
-        });
-      }, 1000);
-    } else {
-      setCountdown(AVERAGE_QUERY_DURATION_SECONDS);
-      setTimeoutReached(false);
-      setAbortController(null);
-    }
-
-    return () => {
-      if (intervalId !== null) {
-        window.clearInterval(intervalId);
-      }
-    };
-  }, [fetchState, settings.timeoutEnabled, settings.timeoutSeconds]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Warn user before leaving if they have unsaved input or query is running
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (question.trim() || fetchState === "loading") {
+      if (queryState.question.trim() || queryState.fetchState === "loading") {
         event.preventDefault();
         event.returnValue =
           "You have unsaved changes or a query running. Are you sure you want to leave?";
@@ -210,23 +111,21 @@ function DashboardContent() {
 
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [question, fetchState]);
+  }, [queryState.question, queryState.fetchState]);
 
   const handleSessionReset = () => {
-    setSessionId(createSessionId());
+    updateQueryState({ sessionId: createSessionId() });
   };
 
   const handleTimeoutCancel = () => {
-    if (abortController) {
-      abortController.abort();
-      setAbortController(null);
-    }
-    setFetchState("error");
-    setErrorMessage("Query timed out and cancelled by user.");
+    cancelQuery();
+    updateQueryState({
+      errorMessage: "Query timed out and cancelled by user.",
+    });
   };
 
   const handleSaveChart = useCallback(async () => {
-    if (!result || !user) return;
+    if (!queryState.result || !user) return;
     const now = Date.now();
 
     if (updatingQueryId) {
@@ -236,7 +135,8 @@ function DashboardContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           visualizationName:
-            result.chart?.meta?.title || result.chart?.meta?.visualizationName,
+            queryState.result.chart?.meta?.title ||
+            queryState.result.chart?.meta?.visualizationName,
         }),
       });
       setSavedItems((prev) =>
@@ -244,12 +144,12 @@ function DashboardContent() {
           item.id === updatingQueryId
             ? {
                 ...item,
-                result,
-                question,
+                result: queryState.result!,
+                question: queryState.question,
                 updatedAt: now,
                 visualizationName:
-                  result.chart?.meta?.title ||
-                  result.chart?.meta?.visualizationName,
+                  queryState.result!.chart?.meta?.title ||
+                  queryState.result!.chart?.meta?.visualizationName,
               }
             : item
         )
@@ -261,18 +161,19 @@ function DashboardContent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          question,
-          result,
+          question: queryState.question,
+          result: queryState.result,
           visualizationName:
-            result.chart?.meta?.title || result.chart?.meta?.visualizationName,
+            queryState.result.chart?.meta?.title ||
+            queryState.result.chart?.meta?.visualizationName,
           userId: user.id,
         }),
       });
       const newQuery = await response.json();
       const newItem: SavedItem = {
         id: newQuery.id,
-        question,
-        result,
+        question: queryState.question,
+        result: queryState.result!,
         createdAt: new Date(newQuery.createdAt).getTime(),
         updatedAt: new Date(newQuery.updatedAt).getTime(),
         isFavorite: false,
@@ -281,7 +182,7 @@ function DashboardContent() {
       setSavedItems((prev) => [newItem, ...prev]);
       setLastAutoSavedQueryId(newQuery.id);
     }
-  }, [result, updatingQueryId, question, user]);
+  }, [queryState.result, updatingQueryId, queryState.question, user]);
 
   const handleSaveRawJson = useCallback(
     async (customQuestion: string, customResult: NormalizedInsight) => {
@@ -353,10 +254,10 @@ function DashboardContent() {
   // Auto-save successful results if enabled
   useEffect(() => {
     if (
-      !result ||
-      fetchState !== "success" ||
+      !queryState.result ||
+      queryState.fetchState !== "success" ||
       !settings.autoSaveQueries ||
-      !question.trim()
+      !queryState.question.trim()
     ) {
       return;
     }
@@ -364,27 +265,29 @@ function DashboardContent() {
     // Check if this result is already saved (to avoid duplicates on mount)
     const alreadySaved = savedItems.some(
       (item) =>
-        item.question === question &&
-        item.result.insightText === result.insightText
+        item.question === queryState.question &&
+        item.result.insightText === queryState.result!.insightText
     );
 
     if (!alreadySaved) {
       handleSaveChart();
     }
   }, [
-    result,
-    fetchState,
+    queryState.result,
+    queryState.fetchState,
     settings.autoSaveQueries,
-    question,
+    queryState.question,
     savedItems,
     handleSaveChart,
   ]);
 
   const handleLoadSavedItem = async (item: SavedItem) => {
     setQuestion(item.question);
-    setResult(item.result);
-    setFetchState("success");
-    setErrorMessage(null);
+    updateQueryState({
+      result: item.result,
+      fetchState: "success",
+      errorMessage: null,
+    });
     setCurrentParentQueryId(item.id);
 
     // Load follow-ups for this query
@@ -430,18 +333,13 @@ function DashboardContent() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setErrorMessage(null);
+    updateQueryState({ errorMessage: null });
 
     if (!canSubmit) {
-      setErrorMessage("Provide an n8n webhook URL in settings.");
+      updateQueryState({
+        errorMessage: "Provide an n8n webhook URL in settings.",
+      });
       return;
-    }
-
-    setFetchState("loading");
-
-    const normalizedSession = sessionId.trim() || createSessionId();
-    if (!sessionId.trim()) {
-      setSessionId(normalizedSession);
     }
 
     const cleanedQuestion = followUpQuestion.trim() || question.trim();
@@ -449,110 +347,45 @@ function DashboardContent() {
     const payload: QueryRequestBody = {
       question: cleanedQuestion,
       chartType,
-      sessionId: normalizedSession,
+      sessionId,
       chatInput: cleanedQuestion,
     };
-    // Create AbortController for manual cancellation
-    const controller = new AbortController();
-    setAbortController(controller);
 
-    try {
-      logger.info("[query] Sending request to internal API", {
-        payload,
-      });
+    await startQuery(payload);
+    setFollowUpQuestion("");
 
-      const response = await fetch("/api/query", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
-
-      logger.info("[query] API response received", {
-        status: response.status,
-        statusText: response.statusText,
-      });
-
-      const text = await response.text();
-      logger.debug("[query] Raw response body", text || "(empty)");
-
-      if (!response.ok) {
-        throw new Error(
-          `Webhook request failed (${response.status})${
-            text ? `: ${text}` : ""
-          }`
-        );
-      }
-
-      const sanitizedBody = extractJsonPayload(text);
-
-      if (!sanitizedBody) {
-        throw new Error("Webhook returned an empty response body.");
-      }
-
-      let json: InsightResponse;
+    // If this is a follow-up, save it
+    if (followUpQuestion.trim() && currentParentQueryId) {
       try {
-        json = JSON.parse(sanitizedBody) as InsightResponse;
-      } catch {
-        throw new Error(
-          "Webhook returned invalid JSON. Check the workflow output."
-        );
-      }
+        const followUpData = {
+          parentQueryId: currentParentQueryId,
+          question: cleanedQuestion,
+          result: queryState.result,
+          chartType: chartType !== "auto" ? chartType : undefined,
+          userId: user!.id,
+        };
 
-      const normalized = normalizeInsight(json);
-      setResult(normalized);
-      setFollowUpQuestion("");
-      setFetchState("success");
-      setAbortController(null);
+        const followUpResponse = await fetch("/api/follow-ups", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(followUpData),
+        });
 
-      // If this is a follow-up, save it
-      if (followUpQuestion.trim() && currentParentQueryId) {
-        try {
-          const followUpData = {
-            parentQueryId: currentParentQueryId,
-            question: cleanedQuestion,
-            result: normalized,
-            chartType: chartType !== "auto" ? chartType : undefined,
-            userId: user!.id,
-          };
-
-          const followUpResponse = await fetch("/api/follow-ups", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(followUpData),
-          });
-
-          if (followUpResponse.ok) {
-            const savedFollowUp = await followUpResponse.json();
-            setFollowUps((prev) => [
-              ...prev,
-              {
-                ...savedFollowUp,
-                result: savedFollowUp.result,
-                createdAt: new Date(savedFollowUp.createdAt).getTime(),
-                updatedAt: new Date(savedFollowUp.updatedAt).getTime(),
-              },
-            ]);
-          }
-        } catch (error) {
-          console.error("Failed to save follow-up:", error);
+        if (followUpResponse.ok) {
+          const savedFollowUp = await followUpResponse.json();
+          setFollowUps((prev) => [
+            ...prev,
+            {
+              ...savedFollowUp,
+              result: savedFollowUp.result,
+              createdAt: new Date(savedFollowUp.createdAt).getTime(),
+              updatedAt: new Date(savedFollowUp.updatedAt).getTime(),
+            },
+          ]);
         }
+      } catch (error) {
+        console.error("Failed to save follow-up:", error);
       }
-    } catch (error) {
-      logger.error("[n8n] Webhook request failed", error);
-      if (error instanceof DOMException && error.name === "AbortError") {
-        setFetchState("error");
-        setErrorMessage("Query cancelled by user.");
-        setAbortController(null);
-        return;
-      }
-      setFetchState("error");
-      setErrorMessage(
-        error instanceof Error ? error.message : "Failed to contact webhook."
-      );
-      setAbortController(null);
     }
   };
 
@@ -629,10 +462,7 @@ function DashboardContent() {
                 {fetchState === "loading" && (
                   <div className="space-y-2">
                     <button
-                      onClick={() => {
-                        setFetchState("error");
-                        setErrorMessage("Query cancelled by user.");
-                      }}
+                      onClick={cancelQuery}
                       className="w-full px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded transition-colors"
                     >
                       Cancel Query
