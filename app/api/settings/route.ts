@@ -5,12 +5,11 @@ import { getOrCreateSettings, toSerializableSettings } from "@/lib/settings";
 
 const SettingsPayload = z.object({
   webhookUrl: z.string().trim().url().or(z.literal("")),
-  timeoutSeconds: z.coerce.number().int().min(5).max(600),
+  timeoutSeconds: z.coerce.number().int().min(60).max(3600),
+  timeoutEnabled: z.boolean(),
   autoSaveQueries: z.boolean(),
   webhookUsername: z.string().optional(),
   webhookPassword: z.string().optional(),
-  requestTimeoutEnabled: z.boolean().optional(),
-  requestTimeoutSeconds: z.coerce.number().int().min(60).max(3600).optional(),
   userId: z.string(), // Add userId for admin check
 });
 

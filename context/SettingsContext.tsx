@@ -11,11 +11,10 @@ import React, {
 export interface AppSettings {
   webhookUrl: string;
   timeoutSeconds: number;
+  timeoutEnabled: boolean;
   autoSaveQueries: boolean;
   webhookUsername?: string;
   webhookPassword?: string;
-  requestTimeoutEnabled: boolean;
-  requestTimeoutSeconds: number;
 }
 
 export interface SettingsContextType {
@@ -29,12 +28,11 @@ export interface SettingsContextType {
 
 const DEFAULT_SETTINGS: AppSettings = {
   webhookUrl: "",
-  timeoutSeconds: 60,
+  timeoutSeconds: 1800, // 30 minutes - consolidated timeout
+  timeoutEnabled: false, // disabled by default
   autoSaveQueries: true,
   webhookUsername: "",
   webhookPassword: "",
-  requestTimeoutEnabled: false,
-  requestTimeoutSeconds: 1800, // 30 minutes
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(

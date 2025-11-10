@@ -38,12 +38,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const timeoutSeconds = Math.min(
-    MAX_TIMEOUT_SECONDS,
-    Math.max(MIN_TIMEOUT_SECONDS, settings.timeoutSeconds)
-  );
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutSeconds * 1000);
+  let timeoutId: NodeJS.Timeout | null = null;
+
+  if (settings.timeoutEnabled) {
+    const timeoutSeconds = Math.min(
+      MAX_TIMEOUT_SECONDS,
+      Math.max(MIN_TIMEOUT_SECONDS, settings.timeoutSeconds)
+    );
+    timeoutId = setTimeout(() => controller.abort(), timeoutSeconds * 1000);
+  }
 
   try {
     const headers = new Headers({ "Content-Type": "application/json" });
@@ -83,6 +87,8 @@ export async function POST(request: NextRequest) {
       { status: 502 }
     );
   } finally {
-    clearTimeout(timeoutId);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
   }
 }

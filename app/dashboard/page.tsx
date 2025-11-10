@@ -171,9 +171,8 @@ function DashboardContent() {
           const newValue = prev > 0 ? prev - 1 : 0;
           // Check if timeout should be triggered
           if (
-            settings.requestTimeoutEnabled &&
-            AVERAGE_QUERY_DURATION_SECONDS - newValue >=
-              settings.requestTimeoutSeconds
+            settings.timeoutEnabled &&
+            AVERAGE_QUERY_DURATION_SECONDS - newValue >= settings.timeoutSeconds
           ) {
             setTimeoutReached(true);
           }
@@ -191,11 +190,7 @@ function DashboardContent() {
         window.clearInterval(intervalId);
       }
     };
-  }, [
-    fetchState,
-    settings.requestTimeoutEnabled,
-    settings.requestTimeoutSeconds,
-  ]);
+  }, [fetchState, settings.timeoutEnabled, settings.timeoutSeconds]);
 
   // Warn user before leaving if they have unsaved input or query is running
   useEffect(() => {
@@ -621,9 +616,9 @@ function DashboardContent() {
                 </p>
                 <p className="text-xs text-slate-500 mb-4">
                   {fetchState === "loading"
-                    ? timeoutReached && settings.requestTimeoutEnabled
+                    ? timeoutReached && settings.timeoutEnabled
                       ? `Timeout period reached (${Math.floor(
-                          settings.requestTimeoutSeconds / 60
+                          settings.timeoutSeconds / 60
                         )}m). Consider cancelling.`
                       : "Workflow running — no automatic timeout."
                     : "Kick off a workflow to start timing."}
@@ -639,7 +634,7 @@ function DashboardContent() {
                     >
                       Cancel Query
                     </button>
-                    {timeoutReached && settings.requestTimeoutEnabled && (
+                    {timeoutReached && settings.timeoutEnabled && (
                       <button
                         onClick={handleTimeoutCancel}
                         className="w-full px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white text-xs font-medium rounded transition-colors"

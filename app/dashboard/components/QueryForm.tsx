@@ -42,7 +42,7 @@ export function QueryForm({
         </label>
         <textarea
           id="question"
-          placeholder="e.g. Show me how many students we had enrolled before July 2025"
+          placeholder="e.g. Show me how many students did we have enrolled before July 2025"
           value={question}
           onChange={(event) => onQuestionChange(event.target.value)}
           required

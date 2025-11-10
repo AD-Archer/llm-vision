@@ -14,8 +14,8 @@ function SettingsContent() {
   const { user, isAdmin } = useAuth();
   const { settings, updateSettings } = useSettings();
   const [autoSaveQueries, setAutoSaveQueries] = useState(true);
-  const [requestTimeoutEnabled, setRequestTimeoutEnabled] = useState(false);
-  const [requestTimeoutSeconds, setRequestTimeoutSeconds] = useState(1800);
+  const [timeoutEnabled, setTimeoutEnabled] = useState(false);
+  const [timeoutSeconds, setTimeoutSeconds] = useState(1800);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -25,8 +25,8 @@ function SettingsContent() {
 
   useEffect(() => {
     setAutoSaveQueries(settings.autoSaveQueries);
-    setRequestTimeoutEnabled(settings.requestTimeoutEnabled);
-    setRequestTimeoutSeconds(settings.requestTimeoutSeconds);
+    setTimeoutEnabled(settings.timeoutEnabled);
+    setTimeoutSeconds(settings.timeoutSeconds);
     setSaveError(null);
   }, [settings]);
 
@@ -39,8 +39,8 @@ function SettingsContent() {
       };
 
       if (isAdmin) {
-        updatePayload.requestTimeoutEnabled = requestTimeoutEnabled;
-        updatePayload.requestTimeoutSeconds = requestTimeoutSeconds;
+        updatePayload.timeoutEnabled = timeoutEnabled;
+        updatePayload.timeoutSeconds = timeoutSeconds;
       }
 
       await updateSettings(updatePayload, user!.id);
@@ -57,8 +57,8 @@ function SettingsContent() {
 
   const isModified =
     autoSaveQueries !== settings.autoSaveQueries ||
-    (isAdmin && requestTimeoutEnabled !== settings.requestTimeoutEnabled) ||
-    (isAdmin && requestTimeoutSeconds !== settings.requestTimeoutSeconds);
+    (isAdmin && timeoutEnabled !== settings.timeoutEnabled) ||
+    (isAdmin && timeoutSeconds !== settings.timeoutSeconds);
 
   return (
     <ProtectedRoute>
@@ -90,10 +90,10 @@ function SettingsContent() {
           {/* Admin Panel Content */}
           {activeTab === "admin" && isAdmin && (
             <AdminPanel
-              requestTimeoutEnabled={requestTimeoutEnabled}
-              onRequestTimeoutEnabledChange={setRequestTimeoutEnabled}
-              requestTimeoutSeconds={requestTimeoutSeconds}
-              onRequestTimeoutSecondsChange={setRequestTimeoutSeconds}
+              timeoutEnabled={timeoutEnabled}
+              onTimeoutEnabledChange={setTimeoutEnabled}
+              timeoutSeconds={timeoutSeconds}
+              onTimeoutSecondsChange={setTimeoutSeconds}
             />
           )}
 

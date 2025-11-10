@@ -5,6 +5,7 @@ export type SerializableSettings = {
   id: string;
   webhookUrl: string;
   timeoutSeconds: number;
+  timeoutEnabled: boolean;
   autoSaveQueries: boolean;
   webhookUsername: string;
   webhookPassword: string;
@@ -57,6 +58,7 @@ export function toSerializableSettings(
     id: settings.id,
     webhookUrl: settings.webhookUrl,
     timeoutSeconds: settings.timeoutSeconds,
+    timeoutEnabled: settings.timeoutEnabled,
     autoSaveQueries: settings.autoSaveQueries,
     webhookUsername: settings.webhookUsername ?? "",
     webhookPassword: settings.webhookPassword ?? "",

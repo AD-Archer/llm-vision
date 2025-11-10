@@ -5,20 +5,19 @@ import { useAdmin } from "../context/AdminContext";
 import { useSettings, AppSettings } from "../context/SettingsContext";
 import { useAuth } from "../context/AuthContext";
 import { UserStats, UserFeatures } from "../types";
-import { AdminSettingsSection } from "../app/settings/components/AdminSettingsSection";
 
 interface AdminPanelProps {
-  requestTimeoutEnabled: boolean;
-  onRequestTimeoutEnabledChange: (enabled: boolean) => void;
-  requestTimeoutSeconds: number;
-  onRequestTimeoutSecondsChange: (seconds: number) => void;
+  timeoutEnabled: boolean;
+  onTimeoutEnabledChange: (enabled: boolean) => void;
+  timeoutSeconds: number;
+  onTimeoutSecondsChange: (seconds: number) => void;
 }
 
 export function AdminPanel({
-  requestTimeoutEnabled,
-  onRequestTimeoutEnabledChange,
-  requestTimeoutSeconds,
-  onRequestTimeoutSecondsChange,
+  timeoutEnabled,
+  onTimeoutEnabledChange,
+  timeoutSeconds,
+  onTimeoutSecondsChange,
 }: AdminPanelProps) {
   const {
     users,
@@ -359,15 +358,12 @@ export function AdminPanel({
             <ApiConfigurationForm
               settings={settings}
               onUpdateSettings={updateSettings}
+              timeoutEnabled={timeoutEnabled}
+              onTimeoutEnabledChange={onTimeoutEnabledChange}
+              timeoutSeconds={timeoutSeconds}
+              onTimeoutSecondsChange={onTimeoutSecondsChange}
             />
           </div>
-
-          <AdminSettingsSection
-            requestTimeoutEnabled={requestTimeoutEnabled}
-            onRequestTimeoutEnabledChange={onRequestTimeoutEnabledChange}
-            requestTimeoutSeconds={requestTimeoutSeconds}
-            onRequestTimeoutSecondsChange={onRequestTimeoutSecondsChange}
-          />
         </div>
       )}
     </div>
@@ -380,17 +376,22 @@ interface ApiConfigurationFormProps {
     updates: Partial<AppSettings>,
     userId: string
   ) => Promise<void>;
+  timeoutEnabled: boolean;
+  onTimeoutEnabledChange: (enabled: boolean) => void;
+  timeoutSeconds: number;
+  onTimeoutSecondsChange: (seconds: number) => void;
 }
 
 function ApiConfigurationForm({
   settings,
   onUpdateSettings,
+  timeoutEnabled,
+  onTimeoutEnabledChange,
+  timeoutSeconds,
+  onTimeoutSecondsChange,
 }: ApiConfigurationFormProps) {
   const { user } = useAuth();
   const [webhookUrl, setWebhookUrl] = useState(settings.webhookUrl || "");
-  const [timeoutSeconds, setTimeoutSeconds] = useState(
-    settings.timeoutSeconds || 60
-  );
   const [webhookUsername, setWebhookUsername] = useState(
     settings.webhookUsername || ""
   );
@@ -446,23 +447,53 @@ function ApiConfigurationForm({
       </div>
 
       <div>
-        <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-2">
-          Request Timeout (seconds)
-        </label>
-        <input
-          type="number"
-          min="5"
-          max="600"
-          value={timeoutSeconds || ""}
-          onChange={(e) => {
-            const value = e.target.value;
-            setTimeoutSeconds(value === "" ? 60 : Number(value));
-          }}
-          className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-xs sm:text-sm text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-        />
-        <p className="text-xs text-slate-400 mt-1">
-          How long to wait for webhook responses (5-600 seconds)
+        <div className="flex items-center space-x-3 mb-3">
+          <input
+            id="timeoutEnabled"
+            type="checkbox"
+            checked={timeoutEnabled}
+            onChange={(e) => onTimeoutEnabledChange(e.target.checked)}
+            className="w-4 h-4 bg-slate-700 border border-slate-600 rounded focus:ring-blue-500 cursor-pointer"
+          />
+          <label
+            htmlFor="timeoutEnabled"
+            className="text-xs sm:text-sm text-slate-300 cursor-pointer font-medium"
+          >
+            Enable Request Timeout
+          </label>
+        </div>
+        <p className="text-xs text-slate-400 mb-3 ml-7">
+          When enabled, API requests will be cancelled after the specified time.
+          This helps prevent long-running queries from consuming resources.
         </p>
+
+        {timeoutEnabled && (
+          <>
+            <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-2 ml-7">
+              Timeout Duration
+            </label>
+            <div className="ml-7 flex items-center gap-2">
+              <input
+                type="number"
+                min="60"
+                max="3600"
+                step="60"
+                value={timeoutSeconds}
+                onChange={(e) =>
+                  onTimeoutSecondsChange(parseInt(e.target.value, 10))
+                }
+                className="w-20 px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <span className="text-xs sm:text-sm text-slate-400">
+                ({Math.floor(timeoutSeconds / 60)} minute
+                {Math.floor(timeoutSeconds / 60) !== 1 ? "s" : ""})
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 ml-7">
+              Valid range: 60 seconds to 1 hour (3600 seconds)
+            </p>
+          </>
+        )}
       </div>
 
       <div className="border-t border-slate-600 pt-4">
