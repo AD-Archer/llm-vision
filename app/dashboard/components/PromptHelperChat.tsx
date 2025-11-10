@@ -52,35 +52,17 @@ export function PromptHelperChat({}: PromptHelperChatProps) {
     setResponse(null);
 
     try {
-      // Validate URL
-      try {
-        new URL(webhookUrl);
-      } catch {
-        throw new Error("Invalid webhook URL");
-      }
-
       const payload = {
         question: question.trim(),
         sessionId,
         chatInput: question.trim(),
       };
 
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        ...settings.promptHelperHeaders,
-      };
-
-      // Add basic auth if provided
-      if (settings.promptHelperUsername && settings.promptHelperPassword) {
-        const auth = btoa(
-          `${settings.promptHelperUsername}:${settings.promptHelperPassword}`
-        );
-        headers.Authorization = `Basic ${auth}`;
-      }
-
-      const res = await fetch(webhookUrl, {
+      const res = await fetch("/api/prompt-helper", {
         method: "POST",
-        headers,
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(payload),
       });
 
