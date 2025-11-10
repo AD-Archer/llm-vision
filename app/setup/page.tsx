@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
 
+export const dynamic = "force-dynamic";
+
 function SetupPageContent() {
   const [webhookUrl, setWebhookUrl] = useState("");
   const [webhookUsername, setWebhookUsername] = useState("");

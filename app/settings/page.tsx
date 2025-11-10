@@ -8,6 +8,8 @@ import { AdminPanel } from "../../components/AdminPanel";
 import { SettingsHeader } from "./components/SettingsHeader";
 import { SettingsTabs } from "./components/SettingsTabs";
 import { SettingsForm } from "./components/SettingsForm";
+
+export const dynamic = "force-dynamic";
 import { SaveSuccessMessage } from "./components/SaveSuccessMessage";
 
 function SettingsContent() {

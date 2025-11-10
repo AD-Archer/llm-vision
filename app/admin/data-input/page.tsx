@@ -5,6 +5,8 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/context/AuthContext";
 import { AdminDataInput } from "@/components/AdminDataInput";
 
+export const dynamic = "force-dynamic";
+
 export default function AdminDataInputPage() {
   const { user } = useAuth();
   const [importedCount, setImportedCount] = useState(0);

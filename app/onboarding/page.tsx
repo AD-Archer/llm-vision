@@ -8,6 +8,8 @@ import { OnboardingContainer } from "./components/OnboardingContainer";
 import { ProgressBar } from "./components/ProgressBar";
 import { StepContent, type OnboardingStep } from "./components/StepContent";
 import { OnboardingButtons } from "./components/OnboardingButtons";
+
+export const dynamic = "force-dynamic";
 import { OnboardingFooter } from "./components/OnboardingFooter";
 
 function OnboardingContent() {
