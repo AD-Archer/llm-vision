@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAdmin } from "../context/AdminContext";
 import { useSettings, AppSettings } from "../context/SettingsContext";
 import { useAuth } from "../context/AuthContext";
@@ -35,7 +35,7 @@ export function AdminPanel({
   const { user: currentUser } = useAuth();
 
   const [activeTab, setActiveTab] = useState<
-    "overview" | "users" | "invitations" | "settings"
+    "overview" | "users" | "invitations" | "settings" | "deleted"
   >("overview");
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [newInvitation, setNewInvitation] = useState<{
@@ -112,6 +112,16 @@ export function AdminPanel({
           }`}
         >
           Settings
+        </button>
+        <button
+          onClick={() => setActiveTab("deleted")}
+          className={`px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "deleted"
+              ? "border-blue-500 text-blue-400"
+              : "border-transparent text-slate-400 hover:text-slate-300"
+          }`}
+        >
+          Deleted Queries
         </button>
       </div>
 
@@ -368,6 +378,9 @@ export function AdminPanel({
           </div>
         </div>
       )}
+
+      {/* Deleted Queries Tab */}
+      {activeTab === "deleted" && <DeletedQueriesTab />}
     </div>
   );
 }
@@ -611,9 +624,6 @@ function UserCard({
           </p>
         </div>
         <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
-          <span className="text-xs sm:text-sm text-slate-300 font-medium">
-            {user.queryCount} queries
-          </span>
           <svg
             className={`w-4 h-4 sm:w-5 sm:h-5 text-slate-400 transition-transform ${
               isExpanded ? "rotate-180" : ""
@@ -639,10 +649,6 @@ function UserCard({
             <div>
               <p className="text-slate-400">Created:</p>
               <p>{new Date(user.createdAt).toLocaleDateString()}</p>
-            </div>
-            <div>
-              <p className="text-slate-400">Last Active:</p>
-              <p>{new Date(user.lastActive).toLocaleDateString()}</p>
             </div>
           </div>
 
@@ -786,6 +792,121 @@ function UserCard({
             </div>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+function DeletedQueriesTab() {
+  interface DeletedQuery {
+    id: string;
+    question: string;
+    deleted: boolean;
+    updatedAt: string;
+    user: {
+      id: string;
+      name: string;
+      email: string;
+    };
+  }
+
+  const [deletedQueries, setDeletedQueries] = useState<DeletedQuery[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDeletedQueries = async () => {
+      try {
+        const response = await fetch("/api/admin/queries");
+        if (response.ok) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const data: any[] = await response.json();
+          // Filter for deleted queries
+          const allDeletedQueries: DeletedQuery[] = data.flatMap(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (userData: any) =>
+              userData.queries
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                .filter((query: any) => query.deleted)
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                .map((query: any) => ({
+                  ...query,
+                  user: userData.user,
+                }))
+          );
+          setDeletedQueries(allDeletedQueries);
+        }
+      } catch (error) {
+        console.error("Failed to fetch deleted queries:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDeletedQueries();
+  }, []);
+
+  const handleRestoreQuery = async (queryId: string, userId: string) => {
+    try {
+      const response = await fetch(
+        `/api/queries/${queryId}?userId=${userId}&action=restore`,
+        {
+          method: "PATCH",
+        }
+      );
+
+      if (response.ok) {
+        // Remove from deleted queries list
+        setDeletedQueries((prev) =>
+          prev.filter((query) => query.id !== queryId)
+        );
+        alert("Query restored successfully!");
+      } else {
+        alert("Failed to restore query");
+      }
+    } catch (error) {
+      console.error("Failed to restore query:", error);
+      alert("Failed to restore query");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="text-center py-6 sm:py-8">
+        <p className="text-sm text-slate-400">Loading deleted queries...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2 sm:space-y-3">
+      {deletedQueries.length === 0 ? (
+        <p className="text-sm text-slate-400 text-center py-6 sm:py-8">
+          No deleted queries found.
+        </p>
+      ) : (
+        deletedQueries.map((query) => (
+          <div key={query.id} className="bg-slate-700 rounded-lg p-3 sm:p-4">
+            <div className="flex justify-between items-start mb-2">
+              <div className="flex-1">
+                <p className="text-sm text-white font-medium mb-1">
+                  {query.question}
+                </p>
+                <p className="text-xs text-slate-400">
+                  User: {query.user.name} ({query.user.email})
+                </p>
+                <p className="text-xs text-slate-400">
+                  Deleted: {new Date(query.updatedAt).toLocaleDateString()}
+                </p>
+              </div>
+              <button
+                onClick={() => handleRestoreQuery(query.id, query.user.id)}
+                className="px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700 text-white font-medium rounded transition-colors"
+              >
+                Restore
+              </button>
+            </div>
+          </div>
+        ))
       )}
     </div>
   );

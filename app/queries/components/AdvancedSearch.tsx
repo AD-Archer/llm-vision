@@ -7,6 +7,7 @@ export interface SearchFilters {
   dateFrom: string;
   dateTo: string;
   showFavoritesOnly: boolean;
+  showAllUsers: boolean;
   sortBy: "recent" | "oldest";
 }
 
@@ -14,12 +15,14 @@ interface AdvancedSearchProps {
   filters: SearchFilters;
   onFiltersChange: (filters: SearchFilters) => void;
   availableChartTypes: string[];
+  isAdmin?: boolean;
 }
 
 export function AdvancedSearch({
   filters,
   onFiltersChange,
   availableChartTypes,
+  isAdmin = false,
 }: AdvancedSearchProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -44,6 +47,7 @@ export function AdvancedSearch({
       dateFrom: "",
       dateTo: "",
       showFavoritesOnly: false,
+      showAllUsers: false,
       sortBy: "recent",
     });
   };
@@ -53,7 +57,8 @@ export function AdvancedSearch({
     filters.chartTypes.length > 0 ||
     filters.dateFrom ||
     filters.dateTo ||
-    filters.showFavoritesOnly;
+    filters.showFavoritesOnly ||
+    filters.showAllUsers;
 
   return (
     <div className="w-full space-y-4">
@@ -90,6 +95,7 @@ export function AdvancedSearch({
                     filters.dateFrom,
                     filters.dateTo,
                     filters.showFavoritesOnly,
+                    filters.showAllUsers,
                   ].filter(Boolean).length
                 }
               </span>
@@ -199,6 +205,30 @@ export function AdvancedSearch({
                 : "Show all queries"}
             </button>
           </div>
+
+          {/* Show All Users Toggle (Admin Only) */}
+          {isAdmin && (
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-300">
+                <Search className="w-4 h-4" />
+                Show All Users&apos; Queries
+              </label>
+              <button
+                onClick={() =>
+                  updateFilter("showAllUsers", !filters.showAllUsers)
+                }
+                className={`px-4 py-2 rounded-lg border text-sm transition-colors ${
+                  filters.showAllUsers
+                    ? "bg-purple-900/30 border-purple-700 text-purple-400"
+                    : "bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600"
+                }`}
+              >
+                {filters.showAllUsers
+                  ? "Showing all users' queries"
+                  : "Show my queries only"}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

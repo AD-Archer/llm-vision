@@ -14,13 +14,17 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
+    const includeDeleted = searchParams.get("includeDeleted") === "true";
 
     if (!userId) {
       return NextResponse.json({ error: "userId required" }, { status: 400 });
     }
 
     const queries = await prisma.savedQuery.findMany({
-      where: { userId },
+      where: {
+        userId,
+        deleted: includeDeleted ? undefined : false,
+      },
       orderBy: { updatedAt: "desc" },
     });
 
@@ -54,6 +58,12 @@ export async function POST(request: NextRequest) {
         userId,
         result: JSON.parse(JSON.stringify(data.result)),
       },
+    });
+
+    // Increment user's query count
+    await prisma.user.update({
+      where: { id: userId },
+      data: { queryCount: { increment: 1 } },
     });
 
     return NextResponse.json(query, { status: 201 });

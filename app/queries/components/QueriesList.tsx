@@ -10,6 +10,8 @@ export interface SavedQuery {
   updatedAt: number;
   isFavorite: boolean;
   visualizationName?: string;
+  userName?: string;
+  userEmail?: string;
   followUps?: FollowUp[];
 }
 
@@ -63,6 +65,11 @@ export function QueriesList({
                 <p className="text-xs text-slate-400 mt-1 line-clamp-1 overflow-hidden text-ellipsis">
                   {query.question}
                 </p>
+                {query.userName && (
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    By {query.userName}
+                  </p>
+                )}
                 <p className="text-xs text-slate-500 mt-1">
                   Updated {formatDate(query.updatedAt)}
                 </p>

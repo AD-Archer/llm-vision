@@ -29,6 +29,7 @@ export default function QueriesPage() {
     dateFrom: "",
     dateTo: "",
     showFavoritesOnly: false,
+    showAllUsers: false,
     sortBy: "recent",
   });
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -43,14 +44,38 @@ export default function QueriesPage() {
   useEffect(() => {
     if (!user) return;
     setIsLoading(true);
-    fetch(`/api/queries?userId=${user.id}`)
+
+    // Determine if we should load all users' queries
+    const shouldLoadAllUsers = user.isAdmin && searchFilters.showAllUsers;
+
+    fetch(
+      shouldLoadAllUsers
+        ? `/api/admin/queries`
+        : `/api/queries?userId=${user.id}`
+    )
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load queries");
         return res.json();
       })
       .then(async (data) => {
+        // If loading all users' queries, data is an array of user objects with their queries
+        // If loading current user's queries, data is an array of queries
+        const queriesData = shouldLoadAllUsers
+          ? data.flatMap(
+              (userData: {
+                user: { name: string; email: string };
+                queries: unknown[];
+              }) =>
+                userData.queries.map((q: unknown) => ({
+                  ...(q as object),
+                  userName: userData.user.name,
+                  userEmail: userData.user.email,
+                }))
+            )
+          : data;
+
         const queries: SavedQuery[] = await Promise.all(
-          data.map(async (q: unknown) => {
+          queriesData.map(async (q: unknown) => {
             const query = q as {
               id: string;
               question: string;
@@ -59,13 +84,17 @@ export default function QueriesPage() {
               updatedAt: string;
               isFavorite: boolean;
               visualizationName?: string;
+              userName?: string;
+              userEmail?: string;
             };
 
             // Load follow-ups for this query (now with nested structure)
             let followUps: FollowUp[] = [];
             try {
               const followUpsResponse = await fetch(
-                `/api/follow-ups?userId=${user.id}&parentQueryId=${query.id}`
+                `/api/follow-ups?userId=${
+                  shouldLoadAllUsers ? query.userEmail : user.id
+                }&parentQueryId=${query.id}`
               );
               if (followUpsResponse.ok) {
                 const followUpsData = await followUpsResponse.json();
@@ -113,6 +142,8 @@ export default function QueriesPage() {
               updatedAt: new Date(query.updatedAt).getTime(),
               isFavorite: query.isFavorite,
               visualizationName: query.visualizationName,
+              userName: query.userName,
+              userEmail: query.userEmail,
               followUps,
             };
           })
@@ -126,7 +157,7 @@ export default function QueriesPage() {
         console.error("Failed to load saved queries", e);
         setIsLoading(false);
       });
-  }, [user]);
+  }, [user, searchFilters.showAllUsers]);
 
   // Handle URL parameters to select query on page load/refresh
   useEffect(() => {
@@ -728,6 +759,7 @@ export default function QueriesPage() {
                   filters={searchFilters}
                   onFiltersChange={setSearchFilters}
                   availableChartTypes={availableChartTypes}
+                  isAdmin={user?.isAdmin}
                 />
                 {savedQueries.length > 0 && (
                   <div className="mt-4 flex justify-end">
