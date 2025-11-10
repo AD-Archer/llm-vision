@@ -82,6 +82,8 @@ RUN echo '#!/bin/sh' > /app/start.sh && \
   echo 'fi' >> /app/start.sh && \
   echo 'echo "Generating Prisma client..."' >> /app/start.sh && \
   echo 'pnpm exec prisma generate' >> /app/start.sh && \
+  echo 'echo "Running database migrations..."' >> /app/start.sh && \
+  echo 'pnpm exec prisma migrate deploy' >> /app/start.sh && \
     echo 'echo "Starting application..."' >> /app/start.sh && \
     echo 'exec node server.js' >> /app/start.sh && \
     chmod +x /app/start.sh && \
