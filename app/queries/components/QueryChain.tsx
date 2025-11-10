@@ -37,32 +37,137 @@ export function QueryChain({
   onRunNewQuery,
   formatDate,
 }: QueryChainProps) {
-  // Build tree structure
+  // Build tree structure - showing relevant context based on what's being viewed
   const buildTree = (): TreeNode[] => {
-    // Determine the root of the tree
     const isViewingFollowUp = "parentQueryId" in query;
 
-    // If viewing a follow-up and we have the parent query, use it as the root
-    const rootQuery: SavedQuery | FollowUp =
-      isViewingFollowUp && parentQuery ? parentQuery : query;
-    const rootType: "query" | "followup" | "parent" =
-      isViewingFollowUp && parentQuery ? "query" : "query";
-    const rootName =
-      "visualizationName" in rootQuery
-        ? rootQuery.visualizationName
-        : "name" in rootQuery
-        ? rootQuery.name
-        : undefined;
+    // Helper function to convert FollowUp to TreeNode
+    const followUpToNode = (
+      followUp: FollowUp,
+      level: number,
+      type: "query" | "followup" | "parent" = "followup"
+    ): TreeNode => ({
+      id: followUp.id,
+      type,
+      question: followUp.question,
+      result: followUp.result,
+      name: followUp.name,
+      isFavorite: followUp.isFavorite,
+      chartType: followUp.chartType,
+      createdAt: followUp.createdAt,
+      updatedAt: followUp.updatedAt,
+      item: followUp,
+      children: [],
+      level,
+    });
 
-    // Add root
+    // Helper to recursively build children from nested followUps
+    const buildFollowUpChildren = (
+      followUp: FollowUp,
+      level: number
+    ): TreeNode[] => {
+      if (!followUp.followUps || followUp.followUps.length === 0) {
+        return [];
+      }
+      return followUp.followUps.map((child) => {
+        const node = followUpToNode(child, level);
+        node.children = buildFollowUpChildren(child, level + 1);
+        return node;
+      });
+    };
+
+    // If viewing a follow-up that has a parent follow-up (nested)
+    if (
+      isViewingFollowUp &&
+      "parentFollowUpId" in query &&
+      query.parentFollowUpId &&
+      parentQuery
+    ) {
+      // Find the parent follow-up in the parent query's follow-ups
+      const findParentFollowUp = (followUps: FollowUp[]): FollowUp | null => {
+        for (const followUp of followUps) {
+          if (followUp.id === query.parentFollowUpId) {
+            return followUp;
+          }
+          if (followUp.followUps && followUp.followUps.length > 0) {
+            const found = findParentFollowUp(followUp.followUps);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      const parentFollowUp = parentQuery.followUps
+        ? findParentFollowUp(parentQuery.followUps)
+        : null;
+
+      if (parentFollowUp) {
+        // Show: Parent Follow-up -> Current Follow-up -> Children
+        const parentNode = followUpToNode(parentFollowUp, 0, "parent");
+
+        // Find the current query in the parent's children and build from there
+        const currentNode = followUpToNode(query as FollowUp, 1, "followup");
+        currentNode.children = buildFollowUpChildren(query as FollowUp, 2);
+
+        parentNode.children = [currentNode];
+
+        // Also add siblings of current query
+        if (parentFollowUp.followUps) {
+          parentFollowUp.followUps.forEach((sibling) => {
+            if (sibling.id !== query.id) {
+              const siblingNode = followUpToNode(sibling, 1);
+              siblingNode.children = buildFollowUpChildren(sibling, 2);
+              parentNode.children.push(siblingNode);
+            }
+          });
+        }
+
+        return flattenTree([parentNode]);
+      }
+    }
+
+    // If viewing a follow-up (direct child of query) or the query itself
+    if (isViewingFollowUp && parentQuery) {
+      // Show: Original Query -> Follow-ups (including current one)
+      const rootName = parentQuery.visualizationName;
+
+      const rootItem: TreeNode = {
+        id: parentQuery.id,
+        type: "query",
+        question: parentQuery.question,
+        result: parentQuery.result,
+        name: rootName,
+        isFavorite: parentQuery.isFavorite,
+        createdAt: parentQuery.createdAt,
+        updatedAt: parentQuery.updatedAt,
+        item: parentQuery,
+        children: [],
+        level: 0,
+      };
+
+      // Build children from parent query's follow-ups
+      if (parentQuery.followUps) {
+        rootItem.children = parentQuery.followUps.map((followUp) => {
+          const node = followUpToNode(followUp, 1);
+          node.children = buildFollowUpChildren(followUp, 2);
+          return node;
+        });
+      }
+
+      return flattenTree([rootItem]);
+    }
+
+    // Viewing a SavedQuery
+    const rootQuery = query as SavedQuery;
+    const rootName = rootQuery.visualizationName;
+
     const rootItem: TreeNode = {
       id: rootQuery.id,
-      type: rootType,
+      type: "query",
       question: rootQuery.question,
       result: rootQuery.result,
       name: rootName,
-      isFavorite: "isFavorite" in rootQuery ? rootQuery.isFavorite : false,
-      chartType: "chartType" in rootQuery ? rootQuery.chartType : undefined,
+      isFavorite: rootQuery.isFavorite,
       createdAt: rootQuery.createdAt,
       updatedAt: rootQuery.updatedAt,
       item: rootQuery,
@@ -70,61 +175,30 @@ export function QueryChain({
       level: 0,
     };
 
-    // Group follow-ups by parent
-    const followUpsByParent: Record<string, FollowUp[]> = {};
-
-    // Get all follow-ups from the root query
-    const allFollowUps =
-      "followUps" in rootQuery ? rootQuery.followUps || [] : [];
-
-    allFollowUps.forEach((followUp: FollowUp) => {
-      const parentId = followUp.parentFollowUpId || followUp.parentQueryId;
-      if (!followUpsByParent[parentId]) {
-        followUpsByParent[parentId] = [];
-      }
-      followUpsByParent[parentId].push(followUp);
-    });
-
-    // Recursive function to build tree
-    const buildChildren = (parentId: string, level: number): TreeNode[] => {
-      const children = followUpsByParent[parentId] || [];
-      return children
-        .sort((a, b) => a.createdAt - b.createdAt)
-        .map(
-          (followUp): TreeNode => ({
-            id: followUp.id,
-            type: "followup",
-            question: followUp.question,
-            result: followUp.result,
-            name: followUp.name,
-            isFavorite: followUp.isFavorite,
-            chartType: followUp.chartType,
-            createdAt: followUp.createdAt,
-            updatedAt: followUp.updatedAt,
-            item: followUp,
-            children: buildChildren(followUp.id, level + 1),
-            level,
-          })
-        );
-    };
-
-    rootItem.children = buildChildren(rootQuery.id, 1);
-
-    // Flatten for rendering with level information
-    const flattenTree = (
-      nodes: TreeNode[],
-      result: TreeNode[] = []
-    ): TreeNode[] => {
-      nodes.forEach((node) => {
-        result.push(node);
-        if (node.children && node.children.length > 0) {
-          flattenTree(node.children, result);
-        }
+    // Build children from query's follow-ups
+    if (rootQuery.followUps) {
+      rootItem.children = rootQuery.followUps.map((followUp) => {
+        const node = followUpToNode(followUp, 1);
+        node.children = buildFollowUpChildren(followUp, 2);
+        return node;
       });
-      return result;
-    };
+    }
 
     return flattenTree([rootItem]);
+  };
+
+  // Flatten tree for rendering
+  const flattenTree = (
+    nodes: TreeNode[],
+    result: TreeNode[] = []
+  ): TreeNode[] => {
+    nodes.forEach((node) => {
+      result.push(node);
+      if (node.children && node.children.length > 0) {
+        flattenTree(node.children, result);
+      }
+    });
+    return result;
   };
 
   const treeItems = buildTree();

@@ -37,9 +37,11 @@ export default function QueriesPage() {
   >(null);
   const [editingName, setEditingName] = useState("");
   const [queriesLoaded, setQueriesLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
+    setIsLoading(true);
     fetch(`/api/queries?userId=${user.id}`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load queries");
@@ -58,7 +60,7 @@ export default function QueriesPage() {
               visualizationName?: string;
             };
 
-            // Load follow-ups for this query
+            // Load follow-ups for this query (now with nested structure)
             let followUps: FollowUp[] = [];
             try {
               const followUpsResponse = await fetch(
@@ -66,25 +68,33 @@ export default function QueriesPage() {
               );
               if (followUpsResponse.ok) {
                 const followUpsData = await followUpsResponse.json();
-                followUps = followUpsData.map(
-                  (f: {
-                    id: string;
-                    parentQueryId: string;
-                    parentFollowUpId?: string;
-                    question: string;
-                    result: NormalizedInsight;
-                    name?: string;
-                    isFavorite: boolean;
-                    chartType?: string;
-                    createdAt: string;
-                    updatedAt: string;
-                  }) => ({
-                    ...f,
-                    result: f.result,
-                    createdAt: new Date(f.createdAt).getTime(),
-                    updatedAt: new Date(f.updatedAt).getTime(),
-                  })
-                );
+
+                // Recursive function to map follow-ups with nested children
+                type FollowUpResponse = {
+                  id: string;
+                  parentQueryId: string;
+                  parentFollowUpId?: string;
+                  question: string;
+                  result: NormalizedInsight;
+                  name?: string;
+                  isFavorite: boolean;
+                  chartType?: string;
+                  createdAt: string;
+                  updatedAt: string;
+                  followUps?: FollowUpResponse[];
+                };
+
+                const mapFollowUp = (f: FollowUpResponse): FollowUp => ({
+                  ...f,
+                  result: f.result,
+                  createdAt: new Date(f.createdAt).getTime(),
+                  updatedAt: new Date(f.updatedAt).getTime(),
+                  followUps: f.followUps
+                    ? f.followUps.map(mapFollowUp)
+                    : undefined,
+                });
+
+                followUps = followUpsData.map(mapFollowUp);
               }
             } catch (error) {
               console.error(
@@ -109,8 +119,12 @@ export default function QueriesPage() {
 
         setSavedQueries(queries);
         setQueriesLoaded(true);
+        setIsLoading(false);
       })
-      .catch((e) => console.error("Failed to load saved queries", e));
+      .catch((e) => {
+        console.error("Failed to load saved queries", e);
+        setIsLoading(false);
+      });
   }, [user]);
 
   // Handle URL parameters to select query on page load/refresh
@@ -121,13 +135,30 @@ export default function QueriesPage() {
     const followUpId = searchParams.get("followUpId");
 
     if (followUpId) {
-      // Find the follow-up across all queries
+      // Find the follow-up across all queries (recursively search nested structure)
+      const findFollowUpRecursive = (
+        followUps: FollowUp[]
+      ): FollowUp | null => {
+        for (const followUp of followUps) {
+          if (followUp.id === followUpId) {
+            return followUp;
+          }
+          if (followUp.followUps && followUp.followUps.length > 0) {
+            const found = findFollowUpRecursive(followUp.followUps);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
       for (const query of savedQueries) {
-        const followUp = query.followUps?.find((f) => f.id === followUpId);
-        if (followUp) {
-          setSelectedItem(followUp);
-          setSelectedQuery(query);
-          return;
+        if (query.followUps) {
+          const followUp = findFollowUpRecursive(query.followUps);
+          if (followUp) {
+            setSelectedItem(followUp);
+            setSelectedQuery(query);
+            return;
+          }
         }
       }
     } else if (queryId) {
@@ -271,28 +302,55 @@ export default function QueriesPage() {
 
   const handleToggleFollowUpFavorite = async (id: string) => {
     if (!user) return;
+
+    // Recursive function to toggle favorite in nested structure
+    const toggleInFollowUps = (followUps: FollowUp[]): FollowUp[] => {
+      return followUps.map((followUp) => {
+        if (followUp.id === id) {
+          return { ...followUp, isFavorite: !followUp.isFavorite };
+        }
+        if (followUp.followUps && followUp.followUps.length > 0) {
+          return {
+            ...followUp,
+            followUps: toggleInFollowUps(followUp.followUps),
+          };
+        }
+        return followUp;
+      });
+    };
+
     // Find the follow-up and toggle its favorite status
     const updatedQueries = savedQueries.map((query) => {
       if (query.followUps) {
-        const updatedFollowUps = query.followUps.map((followUp) =>
-          followUp.id === id
-            ? { ...followUp, isFavorite: !followUp.isFavorite }
-            : followUp
-        );
-        return { ...query, followUps: updatedFollowUps };
+        return { ...query, followUps: toggleInFollowUps(query.followUps) };
       }
       return query;
     });
     setSavedQueries(updatedQueries);
+
+    // Find the new favorite status from updated queries
+    const findFollowUp = (followUps: FollowUp[]): FollowUp | null => {
+      for (const followUp of followUps) {
+        if (followUp.id === id) return followUp;
+        if (followUp.followUps) {
+          const found = findFollowUp(followUp.followUps);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+    const updatedFollowUp = updatedQueries
+      .flatMap((q) => q.followUps || [])
+      .map((f) => findFollowUp([f]))
+      .find((f) => f !== null);
 
     // Update in database
     await fetch(`/api/follow-ups/${id}?userId=${user.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        isFavorite: updatedQueries
-          .flatMap((q) => q.followUps || [])
-          .find((f) => f.id === id)?.isFavorite,
+        isFavorite: updatedFollowUp?.isFavorite,
       }),
     });
   };
@@ -390,7 +448,7 @@ export default function QueriesPage() {
         if (response.ok) {
           const queryData = await response.json();
 
-          // Load follow-ups for this query
+          // Load follow-ups for this query (now with nested structure)
           let followUps: FollowUp[] = [];
           try {
             const followUpsResponse = await fetch(
@@ -398,25 +456,33 @@ export default function QueriesPage() {
             );
             if (followUpsResponse.ok) {
               const followUpsData = await followUpsResponse.json();
-              followUps = followUpsData.map(
-                (f: {
-                  id: string;
-                  parentQueryId: string;
-                  parentFollowUpId?: string;
-                  question: string;
-                  result: NormalizedInsight;
-                  name?: string;
-                  isFavorite: boolean;
-                  chartType?: string;
-                  createdAt: string;
-                  updatedAt: string;
-                }) => ({
-                  ...f,
-                  result: f.result,
-                  createdAt: new Date(f.createdAt).getTime(),
-                  updatedAt: new Date(f.updatedAt).getTime(),
-                })
-              );
+
+              // Recursive function to map follow-ups with nested children
+              type FollowUpResponse = {
+                id: string;
+                parentQueryId: string;
+                parentFollowUpId?: string;
+                question: string;
+                result: NormalizedInsight;
+                name?: string;
+                isFavorite: boolean;
+                chartType?: string;
+                createdAt: string;
+                updatedAt: string;
+                followUps?: FollowUpResponse[];
+              };
+
+              const mapFollowUp = (f: FollowUpResponse): FollowUp => ({
+                ...f,
+                result: f.result,
+                createdAt: new Date(f.createdAt).getTime(),
+                updatedAt: new Date(f.updatedAt).getTime(),
+                followUps: f.followUps
+                  ? f.followUps.map(mapFollowUp)
+                  : undefined,
+              });
+
+              followUps = followUpsData.map(mapFollowUp);
             }
           } catch (error) {
             console.error(
@@ -533,94 +599,113 @@ export default function QueriesPage() {
       <div className="min-h-screen bg-slate-900">
         <div className="max-w-7xl mx-auto py-4 sm:py-8 px-3 sm:px-4">
           <QueriesHeader />
-          <div className="mb-6">
-            <AdvancedSearch
-              filters={searchFilters}
-              onFiltersChange={setSearchFilters}
-              availableChartTypes={availableChartTypes}
-            />
-            {savedQueries.length > 0 && (
-              <div className="mt-4 flex justify-end">
-                <button
-                  onClick={handleClearAll}
-                  className="px-4 py-2 bg-red-900/20 hover:bg-red-900/30 text-red-400 border border-red-700 rounded-lg transition-colors text-sm whitespace-nowrap"
-                >
-                  Clear All
-                </button>
+
+          {/* Loading Screen */}
+          {isLoading && (
+            <div className="flex items-center justify-center min-h-[60vh]">
+              <div className="text-center">
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+                <p className="text-slate-400 text-lg">
+                  Loading your queries...
+                </p>
               </div>
-            )}
-          </div>
-
-          {/* Main Content */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-            {/* Queries List */}
-            <div className="lg:col-span-1">
-              <QueriesList
-                queries={filteredQueries}
-                selectedQuery={selectedQuery}
-                onSelectQuery={(query) => {
-                  setSelectedQuery(query);
-                  setSelectedItem(query);
-                  updateURL(query.id);
-                }}
-                formatDate={formatDate}
-              />
             </div>
+          )}
 
-            {/* Query Details */}
-            <div className="lg:col-span-2">
-              <QueryDetailsView
-                parentQuery={getParentQueryForSelectedItem()}
-                query={selectedItem}
-                isEditingVisualizationName={
-                  editingVisualizationName ===
-                  (selectedItem && "id" in selectedItem
-                    ? selectedItem.id
-                    : null)
-                }
-                editingName={editingName}
-                isUpdating={
-                  updatingId === (selectedItem ? selectedItem.id : null)
-                }
-                onVisualizationEditStart={() => {
-                  if (selectedItem && "visualizationName" in selectedItem) {
-                    setEditingVisualizationName(selectedItem.id);
-                    setEditingName(
-                      selectedItem.visualizationName ||
-                        selectedItem.result.chart?.meta?.visualizationName ||
-                        ""
-                    );
-                  }
-                }}
-                onVisualizationEditCancel={() => {
-                  setEditingVisualizationName(null);
-                  setEditingName("");
-                }}
-                onVisualizationEditChange={setEditingName}
-                onVisualizationEditSave={(newName) => {
-                  if (selectedItem && "visualizationName" in selectedItem) {
-                    handleUpdateVisualizationName(selectedItem.id, newName);
-                  }
-                }}
-                onRerun={handleRunQuery}
-                onUpdate={handleUpdateGraph}
-                onToggleFavorite={handleToggleFavorite}
-                onToggleFollowUpFavorite={handleToggleFollowUpFavorite}
-                onSelectFollowUp={handleSelectFollowUp}
-                onCopy={(query) => {
-                  const text = `${query.question}\n\n${JSON.stringify(
-                    query.result,
-                    null,
-                    2
-                  )}`;
-                  navigator.clipboard.writeText(text);
-                }}
-                onDelete={handleDeleteQuery}
-                onRunNewQuery={handleRunNewQuery}
-                formatDate={formatDate}
-              />
-            </div>
-          </div>
+          {/* Main Content - Only show when not loading */}
+          {!isLoading && (
+            <>
+              <div className="mb-6">
+                <AdvancedSearch
+                  filters={searchFilters}
+                  onFiltersChange={setSearchFilters}
+                  availableChartTypes={availableChartTypes}
+                />
+                {savedQueries.length > 0 && (
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      onClick={handleClearAll}
+                      className="px-4 py-2 bg-red-900/20 hover:bg-red-900/30 text-red-400 border border-red-700 rounded-lg transition-colors text-sm whitespace-nowrap"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Main Content */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+                {/* Queries List */}
+                <div className="lg:col-span-1">
+                  <QueriesList
+                    queries={filteredQueries}
+                    selectedQuery={selectedQuery}
+                    onSelectQuery={(query) => {
+                      setSelectedQuery(query);
+                      setSelectedItem(query);
+                      updateURL(query.id);
+                    }}
+                    formatDate={formatDate}
+                  />
+                </div>
+
+                {/* Query Details */}
+                <div className="lg:col-span-2">
+                  <QueryDetailsView
+                    parentQuery={getParentQueryForSelectedItem()}
+                    query={selectedItem}
+                    isEditingVisualizationName={
+                      editingVisualizationName ===
+                      (selectedItem && "id" in selectedItem
+                        ? selectedItem.id
+                        : null)
+                    }
+                    editingName={editingName}
+                    isUpdating={
+                      updatingId === (selectedItem ? selectedItem.id : null)
+                    }
+                    onVisualizationEditStart={() => {
+                      if (selectedItem && "visualizationName" in selectedItem) {
+                        setEditingVisualizationName(selectedItem.id);
+                        setEditingName(
+                          selectedItem.visualizationName ||
+                            selectedItem.result.chart?.meta
+                              ?.visualizationName ||
+                            ""
+                        );
+                      }
+                    }}
+                    onVisualizationEditCancel={() => {
+                      setEditingVisualizationName(null);
+                      setEditingName("");
+                    }}
+                    onVisualizationEditChange={setEditingName}
+                    onVisualizationEditSave={(newName) => {
+                      if (selectedItem && "visualizationName" in selectedItem) {
+                        handleUpdateVisualizationName(selectedItem.id, newName);
+                      }
+                    }}
+                    onRerun={handleRunQuery}
+                    onUpdate={handleUpdateGraph}
+                    onToggleFavorite={handleToggleFavorite}
+                    onToggleFollowUpFavorite={handleToggleFollowUpFavorite}
+                    onSelectFollowUp={handleSelectFollowUp}
+                    onCopy={(query) => {
+                      const text = `${query.question}\n\n${JSON.stringify(
+                        query.result,
+                        null,
+                        2
+                      )}`;
+                      navigator.clipboard.writeText(text);
+                    }}
+                    onDelete={handleDeleteQuery}
+                    onRunNewQuery={handleRunNewQuery}
+                    formatDate={formatDate}
+                  />
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </ProtectedRoute>

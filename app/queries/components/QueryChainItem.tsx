@@ -87,7 +87,7 @@ export function QueryChainItem({
             {chainItem.type === "query"
               ? "Original Query"
               : chainItem.type === "parent"
-              ? "Parent Query"
+              ? "Parent Follow-up"
               : `Follow-up ${index}`}
           </span>
           <div className="flex-1 min-w-0">

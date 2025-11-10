@@ -30,8 +30,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get follow-ups for a specific parent query
-    const followUps = await prisma.followUp.findMany({
+    // Get all follow-ups for a specific parent query (including nested ones)
+    const allFollowUps = await prisma.followUp.findMany({
       where: {
         parentQueryId,
         parentQuery: { userId }, // Ensure user owns the parent query
@@ -39,7 +39,41 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "asc" },
     });
 
-    return NextResponse.json(followUps);
+    // Build a nested structure
+    type FollowUpWithChildren = (typeof allFollowUps)[0] & {
+      followUps: FollowUpWithChildren[];
+    };
+    const followUpMap = new Map<string, FollowUpWithChildren>();
+    const rootFollowUps: FollowUpWithChildren[] = [];
+
+    // First pass: create map of all follow-ups
+    allFollowUps.forEach((followUp) => {
+      followUpMap.set(followUp.id, {
+        ...followUp,
+        followUps: [],
+      });
+    });
+
+    // Second pass: organize into tree structure
+    allFollowUps.forEach((followUp) => {
+      const followUpWithChildren = followUpMap.get(followUp.id);
+
+      if (followUp.parentFollowUpId && followUpWithChildren) {
+        // This is a child of another follow-up
+        const parent = followUpMap.get(followUp.parentFollowUpId);
+        if (parent) {
+          parent.followUps.push(followUpWithChildren);
+        } else {
+          // Parent not found in same query chain, add to root
+          rootFollowUps.push(followUpWithChildren);
+        }
+      } else if (followUpWithChildren) {
+        // This is a direct child of the query
+        rootFollowUps.push(followUpWithChildren);
+      }
+    });
+
+    return NextResponse.json(rootFollowUps);
   } catch (error) {
     logger.error("Failed to fetch follow-ups:", error);
     return NextResponse.json(
