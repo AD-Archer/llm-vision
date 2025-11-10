@@ -32,6 +32,7 @@ model User {
   isAdmin   Boolean  @default(false)
   queryCount Int     @default(0)
   savedQueries SavedQuery[]
+  aiExperiments AiExperiment[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -77,4 +78,66 @@ model FollowUp {
   updatedAt        DateTime   @updatedAt
 
   @@map("follow_ups")
+}
+
+enum AiExperimentStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum AiRunStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model AiExperiment {
+  id             String              @id @default(cuid())
+  userId         String
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label          String
+  prompt         String
+  expectedAnswer String?
+  notes          String?
+  totalTargets   Int
+  totalCompleted Int                 @default(0)
+  status         AiExperimentStatus  @default(PENDING)
+  durationMs     Int?
+  startedAt      DateTime            @default(now())
+  completedAt    DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  targetConfigs  Json?
+  results        AiExperimentResult[]
+}
+
+model AiExperimentResult {
+  id               String       @id @default(cuid())
+  experimentId     String
+  experiment       AiExperiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  slotIndex        Int
+  label            String
+  color            String?
+  webhookUrl       String
+  modelName        String?
+  method           String       @default("POST")
+  status           AiRunStatus  @default(QUEUED)
+  latencyMs        Int?
+  promptTokens     Int?
+  completionTokens Int?
+  totalTokens      Int?
+  accuracyScore    Float?
+  speedScore       Float?
+  costEstimate     Float?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  responsePayload  Json?
+  errorMessage     String?
+  reviewScore      Int?
+  feedbackNotes    String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 }

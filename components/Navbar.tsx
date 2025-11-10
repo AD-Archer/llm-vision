@@ -69,6 +69,18 @@ export const Navbar = () => {
             >
               Settings
             </Link>
+            {user?.isAdmin && (
+              <Link
+                href="/admin/ai-lab"
+                className={`text-sm font-medium transition-colors ${
+                  isActive("/admin/ai-lab")
+                    ? "text-blue-500 border-b-2 border-blue-500"
+                    : "text-slate-300 hover:text-white"
+                }`}
+              >
+                AI Lab
+              </Link>
+            )}
           </div>
 
           {/* Right side: Hamburger + User Menu */}
@@ -200,6 +212,19 @@ export const Navbar = () => {
             >
               Settings
             </Link>
+            {user?.isAdmin && (
+              <Link
+                href="/admin/ai-lab"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`block px-3 py-2 rounded text-xs sm:text-sm font-medium transition-colors ${
+                  isActive("/admin/ai-lab")
+                    ? "bg-blue-600 text-white"
+                    : "text-slate-300 hover:bg-slate-700"
+                }`}
+              >
+                AI Lab
+              </Link>
+            )}
           </div>
         )}
       </div>
