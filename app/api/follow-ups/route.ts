@@ -13,12 +13,6 @@ const CreateFollowUpPayload = z.object({
   userId: z.string(),
 });
 
-const UpdateFollowUpPayload = z.object({
-  name: z.string().optional(),
-  isFavorite: z.boolean().optional(),
-  chartType: z.string().optional(),
-});
-
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

@@ -87,7 +87,7 @@ function DashboardContent() {
   const [result, setResult] = useState<NormalizedInsight | null>(null);
   const [followUpQuestion, setFollowUpQuestion] = useState("");
   const [followUpName, setFollowUpName] = useState("");
-  const [followUps, setFollowUps] = useState<FollowUp[]>([]);
+  const [followUps, setFollowUps] = useState<FollowUp[]>([]); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [currentParentQueryId, setCurrentParentQueryId] = useState<
     string | null
   >(null);

@@ -1,5 +1,5 @@
 import type { FollowUp } from "../../../types";
-import { Star, ChevronRight, Edit2, Check, X } from "lucide-react";
+import { Star, Edit2, Check, X } from "lucide-react";
 import { useState } from "react";
 
 interface FollowUpListProps {

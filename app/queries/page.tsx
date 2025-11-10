@@ -221,6 +221,30 @@ export default function QueriesPage() {
     console.log("Selected follow-up:", followUp);
   };
 
+  const handleRenameFollowUp = async (id: string, newName: string) => {
+    if (!user) return;
+    // Update local state
+    const updatedQueries = savedQueries.map((query) => {
+      if (query.followUps) {
+        const updatedFollowUps = query.followUps.map((followUp) =>
+          followUp.id === id
+            ? { ...followUp, name: newName || undefined }
+            : followUp
+        );
+        return { ...query, followUps: updatedFollowUps };
+      }
+      return query;
+    });
+    setSavedQueries(updatedQueries);
+
+    // Update in database
+    await fetch(`/api/follow-ups/${id}?userId=${user.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newName || undefined }),
+    });
+  };
+
   const handleChangeFollowUpChartType = async (
     id: string,
     chartType: string
