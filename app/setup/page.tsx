@@ -35,10 +35,6 @@ function SetupPageContent() {
         throw new Error("Webhook URL is required");
       }
 
-      if (!webhookUsername.trim() || !webhookPassword.trim()) {
-        throw new Error("Webhook credentials are required");
-      }
-
       if (timeoutSeconds < 10 || timeoutSeconds > 300) {
         throw new Error("Timeout must be between 10 and 300 seconds");
       }
@@ -117,7 +113,8 @@ function SetupPageContent() {
                 htmlFor="webhookUsername"
                 className="block text-sm font-medium text-slate-300 mb-2"
               >
-                Webhook Username
+                Webhook Username{" "}
+                <span className="text-slate-400 text-xs">(Optional)</span>
               </label>
               <input
                 id="webhookUsername"
@@ -126,7 +123,6 @@ function SetupPageContent() {
                 onChange={(e) => setWebhookUsername(e.target.value)}
                 className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 placeholder="Webhook username"
-                required
               />
             </div>
 
@@ -135,7 +131,8 @@ function SetupPageContent() {
                 htmlFor="webhookPassword"
                 className="block text-sm font-medium text-slate-300 mb-2"
               >
-                Webhook Password
+                Webhook Password{" "}
+                <span className="text-slate-400 text-xs">(Optional)</span>
               </label>
               <input
                 id="webhookPassword"
@@ -144,8 +141,10 @@ function SetupPageContent() {
                 onChange={(e) => setWebhookPassword(e.target.value)}
                 className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 placeholder="Webhook password"
-                required
               />
+              <p className="text-xs text-slate-400 mt-1">
+                You can configure these later in Settings if needed.
+              </p>
             </div>
 
             <div>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
+import { useSettings } from "../../context/SettingsContext";
 import { ProtectedRoute } from "../../components/ProtectedRoute";
 import { OnboardingContainer } from "./components/OnboardingContainer";
 import { ProgressBar } from "./components/ProgressBar";
@@ -14,6 +15,7 @@ import { OnboardingFooter } from "./components/OnboardingFooter";
 
 function OnboardingContent() {
   const { user } = useAuth();
+  const { settings } = useSettings();
   const router = useRouter();
   const [step, setStep] = useState(0);
 
@@ -59,8 +61,18 @@ function OnboardingContent() {
   ];
 
   const currentStep = steps[step];
+  const hasWebhookUrl = settings?.webhookUrl?.trim();
 
   const handleNext = () => {
+    // Check if we're on the settings step (step 3)
+    if (step === 3) {
+      // If webhook is not configured, redirect to settings page instead of proceeding
+      if (!hasWebhookUrl) {
+        router.push("/settings");
+        return;
+      }
+    }
+
     if (step < steps.length - 1) {
       setStep(step + 1);
     } else {
@@ -70,6 +82,11 @@ function OnboardingContent() {
   };
 
   const handleSkip = () => {
+    // If webhook is not configured and user tries to skip, redirect to settings
+    if (!hasWebhookUrl) {
+      router.push("/settings");
+      return;
+    }
     localStorage.setItem("onboarding-complete", "true");
     router.push("/dashboard");
   };

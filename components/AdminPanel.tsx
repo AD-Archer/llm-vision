@@ -461,7 +461,7 @@ function ApiConfigurationForm({
     webhookUsername !== (settings.webhookUsername || "") ||
     webhookPassword !== (settings.webhookPassword || "") ||
     JSON.stringify(webhookHeaders) !==
-      JSON.stringify(settings.webhookHeaders || null);
+      JSON.stringify(settings.webhookHeaders || {});
 
   return (
     <div className="space-y-4">
@@ -706,7 +706,7 @@ function PromptHelperConfigurationForm({
     webhookUsername !== (settings.promptHelperUsername || "") ||
     webhookPassword !== (settings.promptHelperPassword || "") ||
     JSON.stringify(headers) !==
-      JSON.stringify(settings.promptHelperHeaders || null);
+      JSON.stringify(settings.promptHelperHeaders || {});
 
   const addHeader = () => {
     const key = `header${Object.keys(headers).length + 1}`;

@@ -4,10 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { getOrCreateSettings, toSerializableSettings } from "@/lib/settings";
 
 const SettingsPayload = z.object({
-  webhookUrl: z.string().trim().url().or(z.literal("")),
-  timeoutSeconds: z.coerce.number().int().min(60).max(3600),
-  timeoutEnabled: z.boolean(),
-  autoSaveQueries: z.boolean(),
+  webhookUrl: z.string().trim().optional(),
+  timeoutSeconds: z.coerce.number().int().min(60).max(3600).optional(),
+  timeoutEnabled: z.boolean().optional(),
+  autoSaveQueries: z.boolean().optional(),
   webhookUsername: z.string().optional(),
   webhookPassword: z.string().optional(),
   webhookHeaders: z
@@ -39,6 +39,18 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // Validate webhookUrl format if provided and not empty
+    if (parsed.data.webhookUrl && parsed.data.webhookUrl.trim() !== "") {
+      try {
+        new URL(parsed.data.webhookUrl);
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid webhookUrl format. Must be a valid URL." },
+          { status: 400 }
+        );
+      }
+    }
+
     // Check if user is admin
     const user = await prisma.user.findUnique({
       where: { id: parsed.data.userId },
@@ -54,19 +66,45 @@ export async function PUT(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { userId, ...updateData } = parsed.data;
 
-    const normalizedData: Record<string, unknown> = {
-      ...updateData,
-      webhookUsername: updateData.webhookUsername?.trim() || null,
-      webhookPassword: updateData.webhookPassword?.trim() || null,
-      promptHelperUsername: updateData.promptHelperUsername?.trim() || null,
-      promptHelperPassword: updateData.promptHelperPassword?.trim() || null,
-    };
+    const normalizedData: Record<string, unknown> = {};
 
-    // Handle JSON fields - only include if not null
-    if (updateData.webhookHeaders !== null) {
+    // Only include fields that were provided
+    if (updateData.webhookUrl !== undefined) {
+      normalizedData.webhookUrl = updateData.webhookUrl?.trim() || "";
+    }
+    if (updateData.webhookUsername !== undefined) {
+      normalizedData.webhookUsername =
+        updateData.webhookUsername?.trim() || null;
+    }
+    if (updateData.webhookPassword !== undefined) {
+      normalizedData.webhookPassword =
+        updateData.webhookPassword?.trim() || null;
+    }
+    if (updateData.timeoutSeconds !== undefined) {
+      normalizedData.timeoutSeconds = updateData.timeoutSeconds;
+    }
+    if (updateData.timeoutEnabled !== undefined) {
+      normalizedData.timeoutEnabled = updateData.timeoutEnabled;
+    }
+    if (updateData.autoSaveQueries !== undefined) {
+      normalizedData.autoSaveQueries = updateData.autoSaveQueries;
+    }
+    if (updateData.promptHelperWebhookUrl !== undefined) {
+      normalizedData.promptHelperWebhookUrl =
+        updateData.promptHelperWebhookUrl?.trim() || "";
+    }
+    if (updateData.promptHelperUsername !== undefined) {
+      normalizedData.promptHelperUsername =
+        updateData.promptHelperUsername?.trim() || null;
+    }
+    if (updateData.promptHelperPassword !== undefined) {
+      normalizedData.promptHelperPassword =
+        updateData.promptHelperPassword?.trim() || null;
+    }
+    if (updateData.webhookHeaders !== undefined) {
       normalizedData.webhookHeaders = updateData.webhookHeaders;
     }
-    if (updateData.promptHelperHeaders !== null) {
+    if (updateData.promptHelperHeaders !== undefined) {
       normalizedData.promptHelperHeaders = updateData.promptHelperHeaders;
     }
 
@@ -107,6 +145,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate webhookUrl format if provided and not empty
+    if (parsed.data.webhookUrl && parsed.data.webhookUrl.trim() !== "") {
+      try {
+        new URL(parsed.data.webhookUrl);
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid webhookUrl format. Must be a valid URL." },
+          { status: 400 }
+        );
+      }
+    }
+
     // Check if user is admin
     const user = await prisma.user.findUnique({
       where: { id: parsed.data.userId },
@@ -122,19 +172,45 @@ export async function POST(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { userId, ...updateData } = parsed.data;
 
-    const normalizedData: Record<string, unknown> = {
-      ...updateData,
-      webhookUsername: updateData.webhookUsername?.trim() || null,
-      webhookPassword: updateData.webhookPassword?.trim() || null,
-      promptHelperUsername: updateData.promptHelperUsername?.trim() || null,
-      promptHelperPassword: updateData.promptHelperPassword?.trim() || null,
-    };
+    const normalizedData: Record<string, unknown> = {};
 
-    // Handle JSON fields - only include if not null
-    if (updateData.webhookHeaders !== null) {
+    // Only include fields that were provided
+    if (updateData.webhookUrl !== undefined) {
+      normalizedData.webhookUrl = updateData.webhookUrl?.trim() || "";
+    }
+    if (updateData.webhookUsername !== undefined) {
+      normalizedData.webhookUsername =
+        updateData.webhookUsername?.trim() || null;
+    }
+    if (updateData.webhookPassword !== undefined) {
+      normalizedData.webhookPassword =
+        updateData.webhookPassword?.trim() || null;
+    }
+    if (updateData.timeoutSeconds !== undefined) {
+      normalizedData.timeoutSeconds = updateData.timeoutSeconds;
+    }
+    if (updateData.timeoutEnabled !== undefined) {
+      normalizedData.timeoutEnabled = updateData.timeoutEnabled;
+    }
+    if (updateData.autoSaveQueries !== undefined) {
+      normalizedData.autoSaveQueries = updateData.autoSaveQueries;
+    }
+    if (updateData.promptHelperWebhookUrl !== undefined) {
+      normalizedData.promptHelperWebhookUrl =
+        updateData.promptHelperWebhookUrl?.trim() || "";
+    }
+    if (updateData.promptHelperUsername !== undefined) {
+      normalizedData.promptHelperUsername =
+        updateData.promptHelperUsername?.trim() || null;
+    }
+    if (updateData.promptHelperPassword !== undefined) {
+      normalizedData.promptHelperPassword =
+        updateData.promptHelperPassword?.trim() || null;
+    }
+    if (updateData.webhookHeaders !== undefined) {
       normalizedData.webhookHeaders = updateData.webhookHeaders;
     }
-    if (updateData.promptHelperHeaders !== null) {
+    if (updateData.promptHelperHeaders !== undefined) {
       normalizedData.promptHelperHeaders = updateData.promptHelperHeaders;
     }
 
