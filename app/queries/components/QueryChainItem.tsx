@@ -2,7 +2,7 @@ import type { SavedQuery } from "./QueriesList";
 import type { FollowUp } from "../../../types";
 import type { NormalizedInsight } from "../../../utils/chartConfig";
 import ChartRenderer from "../../../components/ChartRenderer";
-import { Star, ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { useState } from "react";
 
 interface ChainItem {
@@ -23,7 +23,6 @@ interface QueryChainItemProps {
   index: number;
   total: number;
   onSelect?: () => void;
-  onToggleFavorite: () => void;
   onRunNewQuery?: () => void;
   formatDate: (timestamp: number) => string;
   isSelected?: boolean;
@@ -35,13 +34,13 @@ export function QueryChainItem({
   index,
   total,
   onSelect,
-  onToggleFavorite,
   onRunNewQuery,
   formatDate,
   isSelected,
   initialExpanded = false,
 }: QueryChainItemProps) {
   const [isExpanded, setIsExpanded] = useState(initialExpanded);
+  const [showRawJson, setShowRawJson] = useState(false);
 
   return (
     <div className="relative">
@@ -107,21 +106,6 @@ export function QueryChainItem({
               <Plus className="w-4 h-4 text-slate-400 hover:text-blue-400 transition-colors" />
             </button>
           )}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleFavorite();
-            }}
-            className="flex-shrink-0"
-          >
-            <Star
-              className={`w-4 h-4 ${
-                chainItem.isFavorite
-                  ? "text-yellow-400 fill-current"
-                  : "text-slate-400 hover:text-yellow-400"
-              } transition-colors`}
-            />
-          </button>
         </div>
 
         {/* Question */}
@@ -217,6 +201,29 @@ export function QueryChainItem({
                   </div>
                 </div>
               )}
+
+            {/* Raw JSON Toggle */}
+            <div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowRawJson(!showRawJson);
+                }}
+                className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm rounded transition-colors"
+              >
+                {showRawJson ? "Hide" : "View"} Raw JSON
+              </button>
+              {showRawJson && (
+                <div className="mt-3">
+                  <h4 className="text-sm font-medium text-slate-300 mb-3">
+                    Raw Response
+                  </h4>
+                  <pre className="bg-slate-900 rounded-lg p-3 border border-slate-700 overflow-x-auto text-xs text-slate-300 whitespace-pre-wrap">
+                    {JSON.stringify(chainItem.result, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

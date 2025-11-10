@@ -12,6 +12,7 @@ interface QueryDetailsViewProps {
   isEditingVisualizationName: boolean;
   editingName: string;
   isUpdating: boolean;
+  updateCountdown: number | null;
   onVisualizationEditStart: () => void;
   onVisualizationEditCancel: () => void;
   onVisualizationEditChange: (value: string) => void;
@@ -19,7 +20,6 @@ interface QueryDetailsViewProps {
   onRerun: (query: SavedQuery | FollowUp) => void;
   onUpdate: (query: SavedQuery | FollowUp) => void;
   onToggleFavorite: (id: string) => void;
-  onToggleFollowUpFavorite: (id: string) => void;
   onSelectFollowUp: (followUp: FollowUp) => void;
   onCopy: (query: SavedQuery | FollowUp) => void;
   onDelete: (id: string) => void;
@@ -33,6 +33,7 @@ export function QueryDetailsView({
   isEditingVisualizationName,
   editingName,
   isUpdating,
+  updateCountdown,
   onVisualizationEditStart,
   onVisualizationEditCancel,
   onVisualizationEditChange,
@@ -40,7 +41,6 @@ export function QueryDetailsView({
   onRerun,
   onUpdate,
   onToggleFavorite,
-  onToggleFollowUpFavorite,
   onSelectFollowUp,
   onCopy,
   onDelete,
@@ -53,6 +53,23 @@ export function QueryDetailsView({
         <div>
           <ArrowLeft className="w-16 h-16 mx-auto mb-3 text-slate-400" />
           <p className="text-slate-400">Select a query to view details</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isUpdating) {
+    return (
+      <div className="bg-slate-800 rounded-lg border border-slate-700 p-12 text-center h-full flex items-center justify-center">
+        <div>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+          <p className="text-slate-400 text-lg mb-2">Updating query...</p>
+          {updateCountdown !== null && (
+            <p className="text-3xl font-bold text-white mb-3">
+              {updateCountdown}s
+            </p>
+          )}
+          <p className="text-xs text-slate-500">Processing your request...</p>
         </div>
       </div>
     );
@@ -90,7 +107,6 @@ export function QueryDetailsView({
           parentQuery={parentQuery}
           selectedItem={query}
           onSelectFollowUp={onSelectFollowUp}
-          onToggleFavorite={onToggleFollowUpFavorite}
           onRunNewQuery={onRunNewQuery}
           formatDate={formatDate}
         />

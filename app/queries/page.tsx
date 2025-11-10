@@ -32,6 +32,7 @@ export default function QueriesPage() {
     sortBy: "recent",
   });
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [updateCountdown, setUpdateCountdown] = useState<number | null>(null);
   const [editingVisualizationName, setEditingVisualizationName] = useState<
     string | null
   >(null);
@@ -180,6 +181,17 @@ export default function QueriesPage() {
     router.push(`/queries?${params.toString()}`, { scroll: false });
   };
 
+  // Countdown for update (now counting up)
+  useEffect(() => {
+    if (updateCountdown === null) return;
+
+    const timer = setTimeout(() => {
+      setUpdateCountdown((prev) => (prev !== null ? prev + 1 : null));
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [updateCountdown]);
+
   const handleDeleteQuery = async (id: string) => {
     if (!user) return;
     try {
@@ -269,15 +281,73 @@ export default function QueriesPage() {
   };
 
   const handleUpdateGraph = async (query: SavedQuery) => {
+    if (!user) return;
     setUpdatingId(query.id);
-    // Store the query with previous data so we can update it
-    const updatePayload = {
-      id: query.id,
-      question: query.question,
-      previousData: query.result,
-    };
-    sessionStorage.setItem("update-query", JSON.stringify(updatePayload));
-    window.location.href = "/dashboard";
+    setUpdateCountdown(0); // Start counting up from 0
+    try {
+      // Send the update request to the API
+      const response = await fetch("/api/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: query.question,
+          chatInput: query.question,
+          chartType: query.result.chart?.type || "bar",
+          sessionId: `update-${query.id}`,
+          previousData: query.result,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update query");
+      }
+
+      const updatedResult = await response.json();
+
+      // Update the query in the state
+      const updated = savedQueries.map((q) =>
+        q.id === query.id
+          ? {
+              ...q,
+              result: updatedResult,
+              updatedAt: Date.now(),
+            }
+          : q
+      );
+      setSavedQueries(updated);
+
+      // If currently viewing a follow-up of this query, switch to the updated query
+      if (
+        selectedItem &&
+        "parentQueryId" in selectedItem &&
+        selectedItem.parentQueryId === query.id
+      ) {
+        const updatedQuery = updated.find((q) => q.id === query.id);
+        if (updatedQuery) {
+          setSelectedItem(updatedQuery);
+          setSelectedQuery(updatedQuery);
+          updateURL(updatedQuery.id);
+        }
+      }
+
+      // Update selected item if it's the one being updated
+      if (
+        selectedItem &&
+        "id" in selectedItem &&
+        selectedItem.id === query.id
+      ) {
+        setSelectedItem({
+          ...selectedItem,
+          result: updatedResult,
+          updatedAt: Date.now(),
+        });
+      }
+    } catch (error) {
+      console.error("Failed to update query:", error);
+    } finally {
+      setUpdatingId(null);
+      setUpdateCountdown(null);
+    }
   };
 
   const handleClearAll = () => {
@@ -300,71 +370,25 @@ export default function QueriesPage() {
     }
   };
 
-  const handleToggleFollowUpFavorite = async (id: string) => {
-    if (!user) return;
-
-    // Recursive function to toggle favorite in nested structure
-    const toggleInFollowUps = (followUps: FollowUp[]): FollowUp[] => {
-      return followUps.map((followUp) => {
-        if (followUp.id === id) {
-          return { ...followUp, isFavorite: !followUp.isFavorite };
-        }
-        if (followUp.followUps && followUp.followUps.length > 0) {
-          return {
-            ...followUp,
-            followUps: toggleInFollowUps(followUp.followUps),
-          };
-        }
-        return followUp;
-      });
-    };
-
-    // Find the follow-up and toggle its favorite status
-    const updatedQueries = savedQueries.map((query) => {
-      if (query.followUps) {
-        return { ...query, followUps: toggleInFollowUps(query.followUps) };
-      }
-      return query;
-    });
-    setSavedQueries(updatedQueries);
-
-    // Find the new favorite status from updated queries
-    const findFollowUp = (followUps: FollowUp[]): FollowUp | null => {
-      for (const followUp of followUps) {
-        if (followUp.id === id) return followUp;
-        if (followUp.followUps) {
-          const found = findFollowUp(followUp.followUps);
-          if (found) return found;
-        }
-      }
-      return null;
-    };
-
-    const updatedFollowUp = updatedQueries
-      .flatMap((q) => q.followUps || [])
-      .map((f) => findFollowUp([f]))
-      .find((f) => f !== null);
-
-    // Update in database
-    await fetch(`/api/follow-ups/${id}?userId=${user.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        isFavorite: updatedFollowUp?.isFavorite,
-      }),
-    });
-  };
-
   const handleRunQuery = (query: SavedQuery) => {
-    // Store the query to be run in the dashboard
-    sessionStorage.setItem("pending-query", JSON.stringify(query));
+    // Store the query question to pre-fill the query form in dashboard
+    sessionStorage.setItem("pending-question", query.question);
     window.location.href = "/dashboard";
   };
 
   const handleRunNewQuery = (baseQuestion: string) => {
-    // Store the base question to pre-fill the query form in dashboard
-    sessionStorage.setItem("pending-question", baseQuestion);
-    window.location.href = "/dashboard";
+    // Find the query that contains this follow-up
+    const parentQuery = getParentQueryForSelectedItem();
+    if (parentQuery) {
+      // Store the parent query id to load in follow-up mode
+      sessionStorage.setItem("follow-up-query", parentQuery.id);
+      sessionStorage.setItem("pending-question", baseQuestion);
+      window.location.href = "/dashboard";
+    } else {
+      // Fallback to normal mode
+      sessionStorage.setItem("pending-question", baseQuestion);
+      window.location.href = "/dashboard";
+    }
   };
 
   const findRootParentQuery = (followUp: FollowUp): SavedQuery | null => {
@@ -664,6 +688,7 @@ export default function QueriesPage() {
                     isUpdating={
                       updatingId === (selectedItem ? selectedItem.id : null)
                     }
+                    updateCountdown={updateCountdown}
                     onVisualizationEditStart={() => {
                       if (selectedItem && "visualizationName" in selectedItem) {
                         setEditingVisualizationName(selectedItem.id);
@@ -688,7 +713,6 @@ export default function QueriesPage() {
                     onRerun={handleRunQuery}
                     onUpdate={handleUpdateGraph}
                     onToggleFavorite={handleToggleFavorite}
-                    onToggleFollowUpFavorite={handleToggleFollowUpFavorite}
                     onSelectFollowUp={handleSelectFollowUp}
                     onCopy={(query) => {
                       const text = `${query.question}\n\n${JSON.stringify(

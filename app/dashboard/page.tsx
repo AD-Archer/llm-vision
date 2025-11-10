@@ -97,7 +97,63 @@ function DashboardContent() {
       setQuestion(pendingQuestion);
       sessionStorage.removeItem("pending-question");
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Check if we need to load a query in follow-up mode
+    const followUpQueryId = sessionStorage.getItem("follow-up-query");
+    if (followUpQueryId && user) {
+      // Load the query for follow-up mode
+      fetch(`/api/queries/${followUpQueryId}?userId=${user.id}`)
+        .then((res) => {
+          if (!res.ok) throw new Error("Failed to load query");
+          return res.json();
+        })
+        .then((queryData) => {
+          setQuestion(queryData.question);
+          updateQueryState({
+            result: queryData.result,
+            fetchState: "success",
+            errorMessage: null,
+          });
+          setCurrentParentQueryId(queryData.id);
+          // Load follow-ups
+          return fetch(
+            `/api/follow-ups?userId=${user.id}&parentQueryId=${queryData.id}`
+          );
+        })
+        .then((res) => {
+          if (!res.ok) throw new Error("Failed to load follow-ups");
+          return res.json();
+        })
+        .then((followUpsData) => {
+          const formattedFollowUps: FollowUp[] = followUpsData.map(
+            (f: {
+              id: string;
+              parentQueryId: string;
+              parentFollowUpId?: string;
+              question: string;
+              result: NormalizedInsight;
+              name?: string;
+              isFavorite: boolean;
+              chartType?: string;
+              createdAt: string;
+              updatedAt: string;
+            }) => ({
+              ...f,
+              result: f.result,
+              createdAt: new Date(f.createdAt).getTime(),
+              updatedAt: new Date(f.updatedAt).getTime(),
+            })
+          );
+          setFollowUps(formattedFollowUps);
+        })
+        .catch((e) => {
+          logger.error("Failed to load follow-up query", e);
+        })
+        .finally(() => {
+          sessionStorage.removeItem("follow-up-query");
+        });
+    }
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Warn user before leaving if they have unsaved input or query is running
   useEffect(() => {

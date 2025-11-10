@@ -23,7 +23,6 @@ interface QueryChainProps {
   parentQuery: SavedQuery | null;
   selectedItem: SavedQuery | FollowUp | null;
   onSelectFollowUp: (followUp: FollowUp) => void;
-  onToggleFavorite: (id: string) => void;
   onRunNewQuery?: (baseQuestion: string) => void;
   formatDate: (timestamp: number) => string;
 }
@@ -33,7 +32,6 @@ export function QueryChain({
   parentQuery,
   selectedItem,
   onSelectFollowUp,
-  onToggleFavorite,
   onRunNewQuery,
   formatDate,
 }: QueryChainProps) {
@@ -239,7 +237,6 @@ export function QueryChain({
                 ? () => onSelectFollowUp(treeItem.item as FollowUp)
                 : undefined
             }
-            onToggleFavorite={() => onToggleFavorite(treeItem.id)}
             onRunNewQuery={
               onRunNewQuery ? () => onRunNewQuery(treeItem.question) : undefined
             }
