@@ -1,6 +1,6 @@
 import type { ChartConfig, ChartType, InsightResponse } from "../types";
 
-type Primitive = string | number | boolean | null;
+type Primitive = string | number | boolean | null | unknown;
 
 const isRecordArray = (
   value: unknown
@@ -100,6 +100,13 @@ const chooseYKeys = (
         if (key.toLowerCase().match(/(value|amount|total|count|score|y)/)) {
           keyScores[key] += 1;
         }
+      } else if (
+        Array.isArray(value) &&
+        value.every((v) => typeof v === "number")
+      ) {
+        // Treat array of numbers as a potential yKey, e.g., average
+        const score = keyScores[key] ?? 0;
+        keyScores[key] = score + 2;
       }
     });
   });
@@ -166,30 +173,7 @@ export const normalizeInsight = (
       : undefined
   );
 
-  // Derive pass/fail chart if data contains pcepScores and recommendation mentions pass/fail
-  let derivedChartData = chartData;
-  if (
-    chartData.length &&
-    chartData.every(
-      (item) =>
-        typeof item.studentEmail === "string" &&
-        Array.isArray(item.pcepScores) &&
-        item.pcepScores.every((s: unknown) => typeof s === "number")
-    ) &&
-    asString(mergedResponse.recommendation)?.toLowerCase().includes("pass/fail")
-  ) {
-    const passFailCounts: Record<string, number> = { Pass: 0, Fail: 0 };
-    chartData.forEach((item) => {
-      const scores = item.pcepScores as number[];
-      const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-      const status = avg >= 3 ? "Pass" : "Fail";
-      passFailCounts[status]++;
-    });
-    derivedChartData = [
-      { status: "Pass", count: passFailCounts.Pass },
-      { status: "Fail", count: passFailCounts.Fail },
-    ];
-  }
+  const derivedChartData = chartData;
 
   const providedType = mergedResponse.chart?.type ?? "auto";
   const providedXKey = mergedResponse.chart?.xKey;
