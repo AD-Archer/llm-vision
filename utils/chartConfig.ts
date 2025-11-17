@@ -137,13 +137,17 @@ export const normalizeInsight = (
   const parsedOutput = parseJsonString(
     (response as { output?: unknown }).output
   );
+  const parsedContent = parseJsonString(
+    (response as { content?: unknown }).content
+  );
+  const parsedResponse = parsedOutput || parsedContent;
   const mergedResponse =
-    parsedOutput &&
-    typeof parsedOutput === "object" &&
-    !Array.isArray(parsedOutput)
+    parsedResponse &&
+    typeof parsedResponse === "object" &&
+    !Array.isArray(parsedResponse)
       ? ({
           ...response,
-          ...(parsedOutput as Record<string, unknown>),
+          ...(parsedResponse as Record<string, unknown>),
         } as InsightResponse)
       : response;
 
@@ -162,35 +166,61 @@ export const normalizeInsight = (
       : undefined
   );
 
+  // Derive pass/fail chart if data contains pcepScores and recommendation mentions pass/fail
+  let derivedChartData = chartData;
+  if (
+    chartData.length &&
+    chartData.every(
+      (item) =>
+        typeof item.studentEmail === "string" &&
+        Array.isArray(item.pcepScores) &&
+        item.pcepScores.every((s: unknown) => typeof s === "number")
+    ) &&
+    asString(mergedResponse.recommendation)?.toLowerCase().includes("pass/fail")
+  ) {
+    const passFailCounts: Record<string, number> = { Pass: 0, Fail: 0 };
+    chartData.forEach((item) => {
+      const scores = item.pcepScores as number[];
+      const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+      const status = avg >= 3 ? "Pass" : "Fail";
+      passFailCounts[status]++;
+    });
+    derivedChartData = [
+      { status: "Pass", count: passFailCounts.Pass },
+      { status: "Fail", count: passFailCounts.Fail },
+    ];
+  }
+
   const providedType = mergedResponse.chart?.type ?? "auto";
   const providedXKey = mergedResponse.chart?.xKey;
   const providedYKeys = mergedResponse.chart?.yKeys;
 
-  const xKey = providedXKey ?? chooseXKey(chartData);
+  const xKey = providedXKey ?? chooseXKey(derivedChartData);
   const yKeys =
     providedYKeys && providedYKeys.length
       ? providedYKeys
-      : chooseYKeys(chartData, xKey);
+      : chooseYKeys(derivedChartData, xKey);
 
-  if (!chartData.length || !xKey || !yKeys.length) {
+  if (!derivedChartData.length || !xKey || !yKeys.length) {
     return { raw: response, insightText };
   }
 
   const type = (
     providedType === "auto"
-      ? inferChartType(chartData, yKeys.length, providedType)
+      ? inferChartType(derivedChartData, yKeys.length, providedType)
       : providedType
   ) as ChartType;
 
   const chart: ChartConfig = {
     type: type === "auto" ? "bar" : type,
-    data: chartData,
+    data: derivedChartData,
     xKey,
     yKeys,
     meta: {
       title:
         asString(mergedResponse.chart?.meta?.title) ??
-        asString((mergedResponse as { title?: unknown }).title),
+        asString((mergedResponse as { title?: unknown }).title) ??
+        "PCEP Pass/Fail Analysis",
       description: asString(mergedResponse.chart?.meta?.description),
       valueKey: asString(mergedResponse.chart?.meta?.valueKey),
       visualizationName:
