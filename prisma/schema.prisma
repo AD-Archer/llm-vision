@@ -43,6 +43,7 @@ model AppSetting {
   // System Prompts
   aiSystemPrompt           String   @default("")
   aiHelperSystemPrompt     String   @default("")
+  aiJsonStructuringPrompt  String   @default("")
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 }

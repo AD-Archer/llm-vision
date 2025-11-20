@@ -40,9 +40,12 @@ export interface AppSettings {
   aiIncludeGuardrailsInfo?: boolean;
   aiProvideCitations?: boolean;
   aiDisableTokenCount?: boolean;
+  // Dual-step AI
+  aiJsonStructuringPrompt?: string;
   // System Prompts
   aiSystemPrompt?: string;
   aiHelperSystemPrompt?: string;
+  // (dual-step fields included above)
 }
 
 export interface SettingsContextType {
@@ -86,6 +89,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   aiIncludeGuardrailsInfo: false,
   aiProvideCitations: false,
   aiDisableTokenCount: false,
+  aiJsonStructuringPrompt: "",
   // System Prompts
   aiSystemPrompt: "",
   aiHelperSystemPrompt: "",

@@ -31,8 +31,11 @@ export async function POST(request: NextRequest) {
 
   const settings = await getOrCreateSettings();
 
+  // Prefer a dedicated prompt helper webhook if configured, then general webhook, then AI provider URL
   const targetUrl =
-    (settings.webhookUrl ?? "").trim() || (settings.aiProviderUrl ?? "").trim();
+    (settings.promptHelperWebhookUrl ?? "").trim() ||
+    (settings.webhookUrl ?? "").trim() ||
+    (settings.aiProviderUrl ?? "").trim();
   const aiProviderKey =
     settings.aiProviderApiKey ?? process.env.AI_PROVIDER_API_KEY ?? undefined;
   if (!targetUrl) {
@@ -55,9 +58,10 @@ export async function POST(request: NextRequest) {
 
   try {
     const headers = new Headers({ "Content-Type": "application/json" });
+    // Use prompt helper credentials if present; otherwise fall back to webhook credentials
     const authHeader = formatAuthHeader(
-      settings.webhookUsername,
-      settings.webhookPassword
+      settings.promptHelperUsername ?? settings.webhookUsername,
+      settings.promptHelperPassword ?? settings.webhookPassword
     );
     if (authHeader) {
       headers.set("Authorization", authHeader);
@@ -72,11 +76,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Modify payload to include system prompt for prompt helper
+    // Modify payload to include system prompt for prompt helper (configurable via settings)
+    const defaultHelperSystem =
+      "You are a PROMPT HELPER ONLY. You do NOT analyze data, generate charts, create visualizations, or return JSON. Your ONLY job is to help users improve their data analysis prompts by suggesting better wording, adding clarity, and making them more specific. Respond with plain text or markdown-formatted suggestions. Do not include any code, SQL queries, or data in your response. Focus solely on rephrasing and improving the user's question.";
     const modifiedPayload = {
       ...(payload as Record<string, unknown>),
-      system:
-        "You are a PROMPT HELPER ONLY. You do NOT analyze data, generate charts, create visualizations, or return JSON. Your ONLY job is to help users improve their data analysis prompts by suggesting better wording, adding clarity, and making them more specific. Respond with plain text or markdown-formatted suggestions. Do not include any code, SQL queries, or data in your response. Focus solely on rephrasing and improving the user's question.",
+      system: settings.aiHelperSystemPrompt?.trim() || defaultHelperSystem,
     };
 
     const response = await fetch(targetUrl, {

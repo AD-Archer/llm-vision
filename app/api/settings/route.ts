@@ -48,6 +48,7 @@ const SettingsPayload = z.object({
   aiIncludeGuardrailsInfo: z.boolean().optional(),
   aiProvideCitations: z.boolean().optional(),
   aiDisableTokenCount: z.boolean().optional(),
+  aiJsonStructuringPrompt: z.string().optional(),
   // System Prompts
   aiSystemPrompt: z.string().optional(),
   aiHelperSystemPrompt: z.string().optional(),
@@ -140,6 +141,10 @@ export async function PUT(request: NextRequest) {
     if (updateData.promptHelperHeaders !== undefined) {
       normalizedData.promptHelperHeaders = updateData.promptHelperHeaders;
     }
+    if (updateData.aiJsonStructuringPrompt !== undefined) {
+      normalizedData.aiJsonStructuringPrompt =
+        updateData.aiJsonStructuringPrompt?.trim() || "";
+    }
     if (updateData.aiProviderUrl !== undefined) {
       normalizedData.aiProviderUrl = updateData.aiProviderUrl?.trim() || "";
     }
@@ -197,6 +202,10 @@ export async function PUT(request: NextRequest) {
     }
     if (updateData.aiProvideCitations !== undefined) {
       normalizedData.aiProvideCitations = updateData.aiProvideCitations;
+    }
+    if (updateData.aiJsonStructuringPrompt !== undefined) {
+      normalizedData.aiJsonStructuringPrompt =
+        updateData.aiJsonStructuringPrompt?.trim() || "";
     }
     // System Prompts
     if (updateData.aiSystemPrompt !== undefined) {
