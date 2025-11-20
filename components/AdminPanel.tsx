@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAdmin } from "../context/AdminContext";
 import { useSettings, AppSettings } from "../context/SettingsContext";
 import { useAuth } from "../context/AuthContext";
+import { AiSettingsSection } from "../app/settings/components/AiSettingsSection";
 import { UserStats, UserFeatures } from "../types";
 
 interface AdminPanelProps {
@@ -381,6 +382,15 @@ export function AdminPanel({
             </h3>
             <PromptHelperConfigurationForm />
           </div>
+          <div className="bg-slate-700 rounded-lg p-3 sm:p-4">
+            <h3 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4">
+              AI Settings
+            </h3>
+            <AiSettingsForm
+              settings={settings}
+              onUpdateSettings={updateSettings}
+            />
+          </div>
         </div>
       )}
 
@@ -607,6 +617,168 @@ interface UserCardProps {
   onResetPassword: (userId: string, newPassword: string) => Promise<void>;
   onUpdateFeatures: (userId: string, features: Partial<UserFeatures>) => void;
   onMakeAdmin?: (userId: string) => Promise<void>;
+}
+
+function AiSettingsForm({
+  settings,
+  onUpdateSettings,
+}: {
+  settings: AppSettings;
+  onUpdateSettings: (
+    updates: Partial<AppSettings>,
+    userId: string
+  ) => Promise<void>;
+}) {
+  const { user } = useAuth();
+  const [aiTemperature, setAiTemperature] = useState(
+    settings.aiTemperature ?? 0.7
+  );
+  const [aiTopP, setAiTopP] = useState(settings.aiTopP ?? 1.0);
+  const [aiMaxTokens, setAiMaxTokens] = useState(settings.aiMaxTokens ?? 4096);
+  const [aiStream, setAiStream] = useState(settings.aiStream ?? false);
+  const [aiK, setAiK] = useState(settings.aiK ?? 5);
+  const [aiRetrievalMethod, setAiRetrievalMethod] = useState(
+    settings.aiRetrievalMethod ?? "none"
+  );
+  const [aiFrequencyPenalty, setAiFrequencyPenalty] = useState(
+    settings.aiFrequencyPenalty ?? 0.0
+  );
+  const [aiPresencePenalty, setAiPresencePenalty] = useState(
+    settings.aiPresencePenalty ?? 0.0
+  );
+  const [
+    aiFilterKbContentByQueryMetadata,
+    setAiFilterKbContentByQueryMetadata,
+  ] = useState(settings.aiFilterKbContentByQueryMetadata ?? false);
+  const [aiIncludeFunctionsInfo, setAiIncludeFunctionsInfo] = useState(
+    settings.aiIncludeFunctionsInfo ?? false
+  );
+  const [aiIncludeRetrievalInfo, setAiIncludeRetrievalInfo] = useState(
+    settings.aiIncludeRetrievalInfo ?? false
+  );
+  const [aiIncludeGuardrailsInfo, setAiIncludeGuardrailsInfo] = useState(
+    settings.aiIncludeGuardrailsInfo ?? false
+  );
+  const [aiProvideCitations, setAiProvideCitations] = useState(
+    settings.aiProvideCitations ?? false
+  );
+  const [aiDisableTokenCount, setAiDisableTokenCount] = useState(
+    settings.aiDisableTokenCount ?? false
+  );
+  const [aiSystemPrompt, setAiSystemPrompt] = useState(
+    settings.aiSystemPrompt ?? ""
+  );
+  const [aiHelperSystemPrompt, setAiHelperSystemPrompt] = useState(
+    settings.aiHelperSystemPrompt ?? ""
+  );
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const updates: Partial<AppSettings> = {
+        aiTemperature,
+        aiTopP,
+        aiMaxTokens,
+        aiStream,
+        aiK,
+        aiRetrievalMethod,
+        aiFrequencyPenalty,
+        aiPresencePenalty,
+        aiFilterKbContentByQueryMetadata,
+        aiIncludeFunctionsInfo,
+        aiIncludeRetrievalInfo,
+        aiIncludeGuardrailsInfo,
+        aiProvideCitations,
+        aiDisableTokenCount,
+        aiSystemPrompt,
+        aiHelperSystemPrompt,
+      };
+      await onUpdateSettings(updates, user!.id);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (error) {
+      console.error("Failed to save AI settings", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleResetToDefaults = () => {
+    setAiTemperature(0.7);
+    setAiTopP(1.0);
+    setAiMaxTokens(4096);
+    setAiStream(false);
+    setAiK(5);
+    setAiRetrievalMethod("none");
+    setAiFrequencyPenalty(0.0);
+    setAiPresencePenalty(0.0);
+    setAiFilterKbContentByQueryMetadata(false);
+    setAiIncludeFunctionsInfo(false);
+    setAiIncludeRetrievalInfo(false);
+    setAiIncludeGuardrailsInfo(false);
+    setAiProvideCitations(false);
+    setAiDisableTokenCount(false);
+    setAiSystemPrompt("");
+    setAiHelperSystemPrompt("");
+  };
+
+  return (
+    <div className="space-y-4">
+      <AiSettingsSection
+        aiTemperature={aiTemperature}
+        aiTopP={aiTopP}
+        aiMaxTokens={aiMaxTokens}
+        aiStream={aiStream}
+        aiK={aiK}
+        aiRetrievalMethod={aiRetrievalMethod}
+        aiFrequencyPenalty={aiFrequencyPenalty}
+        aiPresencePenalty={aiPresencePenalty}
+        aiFilterKbContentByQueryMetadata={aiFilterKbContentByQueryMetadata}
+        aiIncludeFunctionsInfo={aiIncludeFunctionsInfo}
+        aiIncludeRetrievalInfo={aiIncludeRetrievalInfo}
+        aiIncludeGuardrailsInfo={aiIncludeGuardrailsInfo}
+        aiProvideCitations={aiProvideCitations}
+        aiDisableTokenCount={aiDisableTokenCount}
+        aiSystemPrompt={aiSystemPrompt}
+        aiHelperSystemPrompt={aiHelperSystemPrompt}
+        onAiTemperatureChange={setAiTemperature}
+        onAiTopPChange={setAiTopP}
+        onAiMaxTokensChange={setAiMaxTokens}
+        onAiStreamChange={setAiStream}
+        onAiKChange={setAiK}
+        onAiRetrievalMethodChange={setAiRetrievalMethod}
+        onAiFrequencyPenaltyChange={setAiFrequencyPenalty}
+        onAiPresencePenaltyChange={setAiPresencePenalty}
+        onAiFilterKbContentByQueryMetadataChange={
+          setAiFilterKbContentByQueryMetadata
+        }
+        onAiIncludeFunctionsInfoChange={setAiIncludeFunctionsInfo}
+        onAiIncludeRetrievalInfoChange={setAiIncludeRetrievalInfo}
+        onAiIncludeGuardrailsInfoChange={setAiIncludeGuardrailsInfo}
+        onAiProvideCitationsChange={setAiProvideCitations}
+        onAiDisableTokenCountChange={setAiDisableTokenCount}
+        onAiSystemPromptChange={setAiSystemPrompt}
+        onAiHelperSystemPromptChange={setAiHelperSystemPrompt}
+        onResetToDefaults={handleResetToDefaults}
+      />
+      <div className="flex justify-end">
+        <button
+          onClick={handleSave}
+          disabled={isSaving}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+        >
+          {isSaving ? "Saving..." : "Save AI Settings"}
+        </button>
+        {saveSuccess && (
+          <span className="ml-2 text-green-400 text-sm self-center">
+            Settings saved!
+          </span>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function UserCard({

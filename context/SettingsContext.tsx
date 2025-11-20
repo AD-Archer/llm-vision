@@ -22,6 +22,27 @@ export interface AppSettings {
   promptHelperUsername?: string;
   promptHelperPassword?: string;
   promptHelperHeaders?: Record<string, string> | null;
+  // AI Settings
+  aiTemperature?: number;
+  aiTopP?: number;
+  aiMaxTokens?: number;
+  aiStream?: boolean;
+  aiK?: number;
+  aiRetrievalMethod?: string;
+  aiFrequencyPenalty?: number;
+  aiPresencePenalty?: number;
+  aiStop?: string | string[];
+  aiStreamOptions?: { include_usage?: boolean };
+  aiKbFilters?: Array<{ index: string; path?: string }>;
+  aiFilterKbContentByQueryMetadata?: boolean;
+  aiIncludeFunctionsInfo?: boolean;
+  aiIncludeRetrievalInfo?: boolean;
+  aiIncludeGuardrailsInfo?: boolean;
+  aiProvideCitations?: boolean;
+  aiDisableTokenCount?: boolean;
+  // System Prompts
+  aiSystemPrompt?: string;
+  aiHelperSystemPrompt?: string;
 }
 
 export interface SettingsContextType {
@@ -47,6 +68,27 @@ const DEFAULT_SETTINGS: AppSettings = {
   promptHelperUsername: "",
   promptHelperPassword: "",
   promptHelperHeaders: null,
+  // AI Settings defaults
+  aiTemperature: 0.7,
+  aiTopP: 1.0,
+  aiMaxTokens: 4096,
+  aiStream: false,
+  aiK: 5,
+  aiRetrievalMethod: "none",
+  aiFrequencyPenalty: 0.0,
+  aiPresencePenalty: 0.0,
+  aiStop: undefined,
+  aiStreamOptions: undefined,
+  aiKbFilters: undefined,
+  aiFilterKbContentByQueryMetadata: false,
+  aiIncludeFunctionsInfo: false,
+  aiIncludeRetrievalInfo: false,
+  aiIncludeGuardrailsInfo: false,
+  aiProvideCitations: false,
+  aiDisableTokenCount: false,
+  // System Prompts
+  aiSystemPrompt: "",
+  aiHelperSystemPrompt: "",
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(

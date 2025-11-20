@@ -21,6 +21,36 @@ const SettingsPayload = z.object({
     .optional(),
   aiProviderUrl: z.string().trim().optional(),
   aiProviderApiKey: z.string().nullable().optional(),
+  // AI Settings
+  aiTemperature: z.coerce.number().min(0).max(2).optional(),
+  aiTopP: z.coerce.number().min(0.01).max(1).optional(),
+  aiMaxTokens: z.coerce.number().int().min(1).optional(),
+  aiStream: z.boolean().optional(),
+  aiK: z.coerce.number().int().min(0).optional(),
+  aiRetrievalMethod: z
+    .enum(["rewrite", "step_back", "sub_queries", "none"])
+    .optional(),
+  aiFrequencyPenalty: z.coerce.number().min(-2).max(2).optional(),
+  aiPresencePenalty: z.coerce.number().min(-2).max(2).optional(),
+  aiStop: z.union([z.string(), z.array(z.string()), z.null()]).optional(),
+  aiStreamOptions: z
+    .union([z.object({ include_usage: z.boolean().optional() }), z.null()])
+    .optional(),
+  aiKbFilters: z
+    .union([
+      z.array(z.object({ index: z.string(), path: z.string().optional() })),
+      z.null(),
+    ])
+    .optional(),
+  aiFilterKbContentByQueryMetadata: z.boolean().optional(),
+  aiIncludeFunctionsInfo: z.boolean().optional(),
+  aiIncludeRetrievalInfo: z.boolean().optional(),
+  aiIncludeGuardrailsInfo: z.boolean().optional(),
+  aiProvideCitations: z.boolean().optional(),
+  aiDisableTokenCount: z.boolean().optional(),
+  // System Prompts
+  aiSystemPrompt: z.string().optional(),
+  aiHelperSystemPrompt: z.string().optional(),
   userId: z.string(), // Add userId for admin check
 });
 
@@ -117,12 +147,64 @@ export async function PUT(request: NextRequest) {
       normalizedData.aiProviderApiKey =
         updateData.aiProviderApiKey?.trim() || null;
     }
-    if (updateData.aiProviderUrl !== undefined) {
-      normalizedData.aiProviderUrl = updateData.aiProviderUrl?.trim() || "";
+    // AI Settings
+    if (updateData.aiTemperature !== undefined) {
+      normalizedData.aiTemperature = updateData.aiTemperature;
     }
-    if (updateData.aiProviderApiKey !== undefined) {
-      normalizedData.aiProviderApiKey =
-        updateData.aiProviderApiKey?.trim() || null;
+    if (updateData.aiTopP !== undefined) {
+      normalizedData.aiTopP = updateData.aiTopP;
+    }
+    if (updateData.aiMaxTokens !== undefined) {
+      normalizedData.aiMaxTokens = updateData.aiMaxTokens;
+    }
+    if (updateData.aiStream !== undefined) {
+      normalizedData.aiStream = updateData.aiStream;
+    }
+    if (updateData.aiK !== undefined) {
+      normalizedData.aiK = updateData.aiK;
+    }
+    if (updateData.aiRetrievalMethod !== undefined) {
+      normalizedData.aiRetrievalMethod = updateData.aiRetrievalMethod;
+    }
+    if (updateData.aiFrequencyPenalty !== undefined) {
+      normalizedData.aiFrequencyPenalty = updateData.aiFrequencyPenalty;
+    }
+    if (updateData.aiPresencePenalty !== undefined) {
+      normalizedData.aiPresencePenalty = updateData.aiPresencePenalty;
+    }
+    if (updateData.aiStop !== undefined) {
+      normalizedData.aiStop = updateData.aiStop;
+    }
+    if (updateData.aiStreamOptions !== undefined) {
+      normalizedData.aiStreamOptions = updateData.aiStreamOptions;
+    }
+    if (updateData.aiKbFilters !== undefined) {
+      normalizedData.aiKbFilters = updateData.aiKbFilters;
+    }
+    if (updateData.aiFilterKbContentByQueryMetadata !== undefined) {
+      normalizedData.aiFilterKbContentByQueryMetadata =
+        updateData.aiFilterKbContentByQueryMetadata;
+    }
+    if (updateData.aiIncludeFunctionsInfo !== undefined) {
+      normalizedData.aiIncludeFunctionsInfo = updateData.aiIncludeFunctionsInfo;
+    }
+    if (updateData.aiIncludeRetrievalInfo !== undefined) {
+      normalizedData.aiIncludeRetrievalInfo = updateData.aiIncludeRetrievalInfo;
+    }
+    if (updateData.aiIncludeGuardrailsInfo !== undefined) {
+      normalizedData.aiIncludeGuardrailsInfo =
+        updateData.aiIncludeGuardrailsInfo;
+    }
+    if (updateData.aiProvideCitations !== undefined) {
+      normalizedData.aiProvideCitations = updateData.aiProvideCitations;
+    }
+    // System Prompts
+    if (updateData.aiSystemPrompt !== undefined) {
+      normalizedData.aiSystemPrompt = updateData.aiSystemPrompt?.trim() || "";
+    }
+    if (updateData.aiHelperSystemPrompt !== undefined) {
+      normalizedData.aiHelperSystemPrompt =
+        updateData.aiHelperSystemPrompt?.trim() || "";
     }
 
     // Update settings

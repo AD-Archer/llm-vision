@@ -72,10 +72,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Modify payload to include AI settings when using AI provider
+    let modifiedPayload = payload;
+    if (aiProviderKey && targetUrl === (settings.aiProviderUrl ?? "").trim()) {
+      modifiedPayload = {
+        ...(payload as Record<string, unknown>),
+        // AI Generation Parameters
+        temperature: settings.aiTemperature ?? 0.7,
+        top_p: settings.aiTopP ?? 1.0,
+        max_tokens: settings.aiMaxTokens ?? 4096,
+        stream: settings.aiStream ?? false,
+        // Retrieval settings
+        k: settings.aiK ?? 5,
+        retrieval_method: settings.aiRetrievalMethod ?? "none",
+        // Penalties
+        frequency_penalty: settings.aiFrequencyPenalty ?? 0.0,
+        presence_penalty: settings.aiPresencePenalty ?? 0.0,
+        // System prompts
+        system: settings.aiSystemPrompt || undefined,
+        // Stream options - disable usage if token count is disabled
+        stream_options: settings.aiDisableTokenCount
+          ? { include_usage: false }
+          : settings.aiStreamOptions ?? undefined,
+        // Other settings
+        stop: settings.aiStop ?? undefined,
+      };
+    }
+
     const response = await fetch(targetUrl, {
       method: "POST",
       headers,
-      body: JSON.stringify(payload),
+      body: JSON.stringify(modifiedPayload),
       signal: controller.signal,
     });
     const rawBody = await response.text();

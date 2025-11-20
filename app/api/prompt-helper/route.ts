@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
 
     // Modify payload to include system prompt for prompt helper
     const modifiedPayload = {
-      ...(payload as any),
+      ...(payload as Record<string, unknown>),
       system:
         "You are a PROMPT HELPER ONLY. You do NOT analyze data, generate charts, create visualizations, or return JSON. Your ONLY job is to help users improve their data analysis prompts by suggesting better wording, adding clarity, and making them more specific. Respond with plain text or markdown-formatted suggestions. Do not include any code, SQL queries, or data in your response. Focus solely on rephrasing and improving the user's question.",
     };

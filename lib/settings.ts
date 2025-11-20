@@ -16,6 +16,27 @@ export type SerializableSettings = {
   promptHelperUsername: string;
   promptHelperPassword: string;
   promptHelperHeaders: Record<string, string> | null;
+  // AI Settings
+  aiTemperature?: number;
+  aiTopP?: number;
+  aiMaxTokens?: number;
+  aiStream?: boolean;
+  aiK?: number;
+  aiRetrievalMethod?: string;
+  aiFrequencyPenalty?: number;
+  aiPresencePenalty?: number;
+  aiStop?: string | string[];
+  aiStreamOptions?: { include_usage?: boolean };
+  aiKbFilters?: Array<{ index: string; path?: string }>;
+  aiFilterKbContentByQueryMetadata?: boolean;
+  aiIncludeFunctionsInfo?: boolean;
+  aiIncludeRetrievalInfo?: boolean;
+  aiIncludeGuardrailsInfo?: boolean;
+  aiProvideCitations?: boolean;
+  aiDisableTokenCount?: boolean;
+  // System Prompts
+  aiSystemPrompt: string;
+  aiHelperSystemPrompt: string;
 };
 
 export async function getOrCreateSettings(): Promise<AppSetting> {
@@ -58,6 +79,27 @@ export async function getOrCreateSettings(): Promise<AppSetting> {
       ),
       timeoutEnabled: false,
       autoSaveQueries: true,
+      // AI Settings defaults
+      aiTemperature: 0.7,
+      aiTopP: 1.0,
+      aiMaxTokens: 4096,
+      aiStream: false,
+      aiK: 5,
+      aiRetrievalMethod: "none",
+      aiFrequencyPenalty: 0.0,
+      aiPresencePenalty: 0.0,
+      aiStop: null,
+      aiStreamOptions: null,
+      aiKbFilters: null,
+      aiFilterKbContentByQueryMetadata: false,
+      aiIncludeFunctionsInfo: false,
+      aiIncludeRetrievalInfo: false,
+      aiIncludeGuardrailsInfo: false,
+      aiProvideCitations: false,
+      aiDisableTokenCount: false,
+      // System Prompts
+      aiSystemPrompt: "",
+      aiHelperSystemPrompt: "",
       createdAt: new Date(),
       updatedAt: new Date(),
     } as unknown as AppSetting;
@@ -87,5 +129,27 @@ export function toSerializableSettings(
     promptHelperUsername: s.promptHelperUsername ?? "",
     promptHelperPassword: s.promptHelperPassword ?? "",
     promptHelperHeaders: s.promptHelperHeaders ?? null,
+    // AI Settings
+    aiTemperature: s.aiTemperature ?? 0.7,
+    aiTopP: s.aiTopP ?? 1.0,
+    aiMaxTokens: s.aiMaxTokens ?? 4096,
+    aiStream: s.aiStream ?? false,
+    aiK: s.aiK ?? 5,
+    aiRetrievalMethod: s.aiRetrievalMethod ?? "none",
+    aiFrequencyPenalty: s.aiFrequencyPenalty ?? 0.0,
+    aiPresencePenalty: s.aiPresencePenalty ?? 0.0,
+    aiStop: s.aiStop ?? undefined,
+    aiStreamOptions: s.aiStreamOptions ?? undefined,
+    aiKbFilters: s.aiKbFilters ?? undefined,
+    aiFilterKbContentByQueryMetadata:
+      s.aiFilterKbContentByQueryMetadata ?? false,
+    aiIncludeFunctionsInfo: s.aiIncludeFunctionsInfo ?? false,
+    aiIncludeRetrievalInfo: s.aiIncludeRetrievalInfo ?? false,
+    aiIncludeGuardrailsInfo: s.aiIncludeGuardrailsInfo ?? false,
+    aiProvideCitations: s.aiProvideCitations ?? false,
+    aiDisableTokenCount: s.aiDisableTokenCount ?? false,
+    // System Prompts
+    aiSystemPrompt: s.aiSystemPrompt ?? "",
+    aiHelperSystemPrompt: s.aiHelperSystemPrompt ?? "",
   };
 }
