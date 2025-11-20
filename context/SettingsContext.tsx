@@ -9,17 +9,43 @@ import React, {
 } from "react";
 
 export interface AppSettings {
-  webhookUrl: string;
+  webhookUrl?: string;
+  aiProviderUrl?: string;
+  aiProviderApiKey?: string;
   timeoutSeconds: number;
   timeoutEnabled: boolean;
   autoSaveQueries: boolean;
   webhookUsername?: string;
   webhookPassword?: string;
   webhookHeaders?: Record<string, string> | null;
-  promptHelperWebhookUrl: string;
+  promptHelperWebhookUrl?: string;
   promptHelperUsername?: string;
   promptHelperPassword?: string;
   promptHelperHeaders?: Record<string, string> | null;
+  // AI Settings
+  aiTemperature?: number;
+  aiTopP?: number;
+  aiMaxTokens?: number;
+  aiStream?: boolean;
+  aiK?: number;
+  aiRetrievalMethod?: string;
+  aiFrequencyPenalty?: number;
+  aiPresencePenalty?: number;
+  aiStop?: string | string[];
+  aiStreamOptions?: { include_usage?: boolean };
+  aiKbFilters?: Array<{ index: string; path?: string }>;
+  aiFilterKbContentByQueryMetadata?: boolean;
+  aiIncludeFunctionsInfo?: boolean;
+  aiIncludeRetrievalInfo?: boolean;
+  aiIncludeGuardrailsInfo?: boolean;
+  aiProvideCitations?: boolean;
+  aiDisableTokenCount?: boolean;
+  // Dual-step AI
+  aiJsonStructuringPrompt?: string;
+  // System Prompts
+  aiSystemPrompt?: string;
+  aiHelperSystemPrompt?: string;
+  // (dual-step fields included above)
 }
 
 export interface SettingsContextType {
@@ -33,7 +59,9 @@ export interface SettingsContextType {
 
 const DEFAULT_SETTINGS: AppSettings = {
   webhookUrl: "",
-  timeoutSeconds: 1800, // 30 minutes - consolidated timeout
+  aiProviderUrl: undefined,
+  aiProviderApiKey: undefined,
+  timeoutSeconds: 180, // 3 minutes - consolidated timeout
   timeoutEnabled: false, // disabled by default
   autoSaveQueries: true,
   webhookUsername: "",
@@ -43,6 +71,28 @@ const DEFAULT_SETTINGS: AppSettings = {
   promptHelperUsername: "",
   promptHelperPassword: "",
   promptHelperHeaders: null,
+  // AI Settings defaults
+  aiTemperature: 0.7,
+  aiTopP: 1.0,
+  aiMaxTokens: 4096,
+  aiStream: false,
+  aiK: 5,
+  aiRetrievalMethod: "none",
+  aiFrequencyPenalty: 0.0,
+  aiPresencePenalty: 0.0,
+  aiStop: undefined,
+  aiStreamOptions: undefined,
+  aiKbFilters: undefined,
+  aiFilterKbContentByQueryMetadata: false,
+  aiIncludeFunctionsInfo: false,
+  aiIncludeRetrievalInfo: false,
+  aiIncludeGuardrailsInfo: false,
+  aiProvideCitations: false,
+  aiDisableTokenCount: false,
+  aiJsonStructuringPrompt: "",
+  // System Prompts
+  aiSystemPrompt: "",
+  aiHelperSystemPrompt: "",
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(

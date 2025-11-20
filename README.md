@@ -1,6 +1,6 @@
 # LLM Visualization Dashboard
 
-This project is a lightweight dashboard that talks to an n8n RAG workflow via webhook, receives a JSON payload with insight data, and renders the best-fit visualization using [Recharts](https://recharts.org). You can let the AI decide which chart to use or override the visualization type manually.
+This project is a lightweight dashboard that talks to an n8n RAG workflow via webhook or can call a configured AI provider directly, receives a JSON payload with insight data, and renders the best-fit visualization using [Recharts](https://recharts.org). You can let the AI decide which chart to use or override the visualization type manually.
 
 ## Prerequisites
 
@@ -39,7 +39,13 @@ This project is a lightweight dashboard that talks to an n8n RAG workflow via we
    pnpm db:migrate
    ```
 
-   This boots Prisma, creates the `AppSetting` table, and inserts the default row used by the Settings UI.
+This boots Prisma, creates the `AppSetting` table, and inserts the default row used by the Settings UI.
+
+Note: If you've made schema changes (like enabling the new Dual-Step AI settings), run a migration first:
+
+```bash
+pnpm prisma migrate dev --name add-dual-step-ai
+```
 
 ## Setup n8n Workflow
 
@@ -63,7 +69,7 @@ This project is a lightweight dashboard that talks to an n8n RAG workflow via we
    - Note the webhook URL from the "Webhook" node (it should end with `/webhook/llm-visi-dash`)
 
 4. **Update the dashboard Settings:**
-   Launch the app, head to **Settings → API Configuration**, and paste your webhook URL (plus optional credentials). The values are stored in Postgres so they survive deployments without living in `.env`.
+   Launch the app, head to **Settings → API Configuration**, and paste your webhook URL (plus optional credentials) if using an n8n workflow. If you'd like the app to call a provider directly, set `AI_PROVIDER_URL` and `AI_PROVIDER_API_KEY` via the Settings or environment variables (see `.env.example`). The values are stored in Postgres so they survive deployments without living in `.env`.
 
 ## Quick start
 
@@ -180,6 +186,36 @@ If the workflow omits the `chart` block, the app will fallback to `response.data
 - the best chart (`pie`, `bar`, `line`, or `area`).
 
 You can force a specific chart type by returning `chart.type` or by selecting an option in the UI.
+
+## Dual-step AI flow (New)
+
+Dual-step is enabled by default in the application settings (you can disable it if needed). When enabled in **Settings → AI Settings** (toggle: "Enable Dual-Step AI"), the dashboard will perform a two-step AI operation for each query when calling a direct AI Provider:
+
+- Step 1: Request the AI normally with your question and the configured AI system prompt (retrieval, context, and generation parameters still apply). This first call behaves like the existing flow and returns insights or analysis text.
+- Step 2: The dashboard then re-submits the **first response** to the AI provider with a second, configurable **JSON Structuring Prompt** (also available under AI Settings). The second call instructs the model to transform the original answer into strictly formatted JSON that the UI expects (insight, chart, data, etc.).
+
+This flow helps when the model produces narrative or unstructured answers and you want to coerce them into valid chart-ready JSON. Use the "JSON Structuring Prompt" field to guide the model on the desired JSON shape and keys. If the second step fails, the app will fall back to the original AI response.
+
+Note: Dual-step is only run when the dashboard is configured to call a direct AI provider (`AI Provider URL` + API key) and streaming results are not used for the first response.
+
+Example JSON Structuring Prompt (recommended):
+
+```
+You are a JSON formatter. Given an arbitrary textual response in the field `original_ai_response`, convert it into the following strict JSON schema without comments or explanation:
+{
+  "insight": string,
+  "chart": {
+    "type": "auto" | "bar" | "line" | "area" | "pie" | "scatter",
+    "xKey": string,
+    "yKeys": string[],
+    "meta": { "title"?: string, "description"?: string, "visualizationName"?: string },
+    "data": Array<Record<string, string | number | boolean | null>>
+  },
+  "data"?: Array<Record<string, string | number | boolean | null>>
+}
+
+Please ensure all keys appear exactly as above. If any fields are missing, infer sensible defaults.
+```
 
 ## Project layout
 

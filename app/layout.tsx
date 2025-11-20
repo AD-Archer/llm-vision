@@ -10,6 +10,9 @@ export const metadata: Metadata = {
   title: "LLM Visualization Dashboard",
   description:
     "Dashboard for visualizing and managing LLM-powered RAG workflows for LaunchPad Philly",
+  icons: {
+    icon: "/icon.png",
+  },
 };
 
 export const viewport: Viewport = {

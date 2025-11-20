@@ -17,9 +17,33 @@ model AppSetting {
   promptHelperUsername     String?
   promptHelperPassword     String?
   promptHelperHeaders      Json?    // Optional headers as key-value pairs
-  timeoutSeconds           Int      @default(1800) // 30 minutes - consolidated timeout
+  timeoutSeconds           Int      @default(180) // 3 minutes - consolidated timeout
   timeoutEnabled           Boolean  @default(false) // disabled by default
   autoSaveQueries          Boolean  @default(true)
+  aiProviderUrl            String?  @default("")
+  aiProviderApiKey         String?  @default("")
+  // AI Settings
+  aiTemperature            Float?   @default(0.7)
+  aiTopP                   Float?   @default(1.0)
+  aiMaxTokens              Int?     @default(4096)
+  aiStream                 Boolean  @default(false)
+  aiK                      Int?     @default(5)
+  aiRetrievalMethod        String?  @default("none") // rewrite|step_back|sub_queries|none
+  aiFrequencyPenalty       Float?   @default(0.0)
+  aiPresencePenalty        Float?   @default(0.0)
+  aiStop                   Json?    // string or array of strings
+  aiStreamOptions          Json?    // {include_usage: boolean}
+  aiKbFilters              Json?    // array of KBFilter objects
+  aiFilterKbContentByQueryMetadata Boolean @default(false)
+  aiIncludeFunctionsInfo   Boolean  @default(false)
+  aiIncludeRetrievalInfo   Boolean  @default(false)
+  aiIncludeGuardrailsInfo  Boolean  @default(false)
+  aiProvideCitations       Boolean  @default(false)
+  aiDisableTokenCount      Boolean  @default(false)
+  // System Prompts
+  aiSystemPrompt           String   @default("")
+  aiHelperSystemPrompt     String   @default("")
+  aiJsonStructuringPrompt  String   @default("")
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 }

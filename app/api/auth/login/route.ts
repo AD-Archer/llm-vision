@@ -58,7 +58,8 @@ export async function POST(request: NextRequest) {
     if (user.isAdmin) {
       try {
         const settings = await prisma.appSetting.findFirst();
-        requiresSetup = !settings || !settings.webhookUrl;
+        requiresSetup =
+          !settings || !(settings.webhookUrl || settings.aiProviderUrl);
       } catch {
         // If settings table doesn't exist or query fails, assume setup is needed
         requiresSetup = true;

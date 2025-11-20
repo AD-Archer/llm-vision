@@ -1,6 +1,10 @@
 interface ApiConfigurationSectionProps {
   webhookUrl: string;
+  aiProviderUrl?: string;
+  aiProviderApiKey?: string;
   onWebhookUrlChange: (url: string) => void;
+  onAiProviderUrlChange?: (url: string) => void;
+  onAiProviderApiKeyChange?: (key: string) => void;
   timeoutSeconds: number;
   onTimeoutChange: (seconds: number) => void;
   webhookUsername?: string;
@@ -18,6 +22,10 @@ export function ApiConfigurationSection({
   onWebhookUsernameChange,
   webhookPassword = "",
   onWebhookPasswordChange,
+  aiProviderUrl = "",
+  aiProviderApiKey = "",
+  onAiProviderUrlChange,
+  onAiProviderApiKeyChange,
 }: ApiConfigurationSectionProps) {
   return (
     <div className="p-3 sm:p-4 md:p-6 border-b border-slate-700">
@@ -41,7 +49,8 @@ export function ApiConfigurationSection({
             className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           />
           <p className="text-xs text-slate-400 mt-1 sm:mt-1.5">
-            Your n8n webhook URL for RAG workflow queries
+            Your n8n webhook URL for RAG workflow queries. If you prefer, you
+            can leave this blank and configure a direct AI provider URL below.
           </p>
         </div>
 
@@ -112,6 +121,54 @@ export function ApiConfigurationSection({
               <p className="text-xs text-slate-400 mt-1 sm:mt-1.5">
                 Basic auth password for webhook (stored server-side and only
                 used when proxying requests)
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="pt-2 sm:pt-3 border-t border-slate-600">
+          <h3 className="text-sm font-medium text-slate-300 mb-3">
+            AI Provider (Optional)
+          </h3>
+          <div className="space-y-3">
+            <div>
+              <label
+                htmlFor="ai-provider-url"
+                className="block text-xs sm:text-sm font-medium text-slate-300 mb-2"
+              >
+                AI Provider URL
+              </label>
+              <input
+                id="ai-provider-url"
+                type="url"
+                value={aiProviderUrl}
+                onChange={(e) => onAiProviderUrlChange?.(e.target.value)}
+                placeholder="https://agents.do-ai.run/api/v1/chat/completions"
+                className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+              <p className="text-xs text-slate-400 mt-1 sm:mt-1.5">
+                Optional: Direct AI provider endpoint to replace external
+                webhooks.
+              </p>
+            </div>
+
+            <div>
+              <label
+                htmlFor="ai-provider-api-key"
+                className="block text-xs sm:text-sm font-medium text-slate-300 mb-2"
+              >
+                AI Provider API Key
+              </label>
+              <input
+                id="ai-provider-api-key"
+                type="text"
+                value={aiProviderApiKey}
+                onChange={(e) => onAiProviderApiKeyChange?.(e.target.value)}
+                placeholder="Bearer <your-token>"
+                className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+              <p className="text-xs text-slate-400 mt-1 sm:mt-1.5">
+                Optional (sensitive): API key for the AI provider. Stored and
+                shown masked.
               </p>
             </div>
           </div>

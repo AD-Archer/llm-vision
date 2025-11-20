@@ -4,6 +4,7 @@ import type { NormalizedInsight } from "../../../utils/chartConfig";
 import ChartRenderer from "../../../components/ChartRenderer";
 import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "../../../context/AuthContext";
 
 interface ChainItem {
   id: string;
@@ -41,6 +42,7 @@ export function QueryChainItem({
 }: QueryChainItemProps) {
   const [isExpanded, setIsExpanded] = useState(initialExpanded);
   const [showRawJson, setShowRawJson] = useState(false);
+  const { user } = useAuth();
 
   return (
     <div className="relative">
@@ -214,13 +216,33 @@ export function QueryChainItem({
                 {showRawJson ? "Hide" : "View"} Raw JSON
               </button>
               {showRawJson && (
-                <div className="mt-3">
-                  <h4 className="text-sm font-medium text-slate-300 mb-3">
-                    Raw Response
-                  </h4>
-                  <pre className="bg-slate-900 rounded-lg p-3 border border-slate-700 overflow-x-auto text-xs text-slate-300 whitespace-pre-wrap">
-                    {JSON.stringify(chainItem.result, null, 2)}
-                  </pre>
+                <div className="mt-3 space-y-4">
+                  <div>
+                    <h4 className="text-sm font-medium text-slate-300 mb-3">
+                      Raw Response
+                    </h4>
+                    <pre className="bg-slate-900 rounded-lg p-3 border border-slate-700 overflow-x-auto text-xs text-slate-300 whitespace-pre-wrap">
+                      {JSON.stringify(chainItem.result, null, 2)}
+                    </pre>
+                  </div>
+
+                  {/* Admin Debug Info - First AI Response */}
+                  {user?.isAdmin &&
+                    !!chainItem.result.raw["_debug_step1_response"] && (
+                      <div>
+                        <h4 className="text-sm font-medium text-yellow-500 mb-3 flex items-center">
+                          <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
+                          First AI Response (Admin Only)
+                        </h4>
+                        <pre className="bg-slate-900 rounded-lg p-3 border border-yellow-500/30 overflow-x-auto text-xs text-slate-300 whitespace-pre-wrap max-h-96 overflow-y-auto">
+                          {
+                            chainItem.result.raw[
+                              "_debug_step1_response"
+                            ] as string
+                          }
+                        </pre>
+                      </div>
+                    )}
                 </div>
               )}
             </div>

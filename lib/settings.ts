@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 export type SerializableSettings = {
   id: string;
   webhookUrl: string;
+  aiProviderUrl?: string;
+  aiProviderApiKey?: string;
   timeoutSeconds: number;
   timeoutEnabled: boolean;
   autoSaveQueries: boolean;
@@ -14,6 +16,28 @@ export type SerializableSettings = {
   promptHelperUsername: string;
   promptHelperPassword: string;
   promptHelperHeaders: Record<string, string> | null;
+  // AI Settings
+  aiTemperature?: number;
+  aiTopP?: number;
+  aiMaxTokens?: number;
+  aiStream?: boolean;
+  aiK?: number;
+  aiRetrievalMethod?: string;
+  aiFrequencyPenalty?: number;
+  aiPresencePenalty?: number;
+  aiStop?: string | string[];
+  aiStreamOptions?: { include_usage?: boolean };
+  aiKbFilters?: Array<{ index: string; path?: string }>;
+  aiFilterKbContentByQueryMetadata?: boolean;
+  aiIncludeFunctionsInfo?: boolean;
+  aiIncludeRetrievalInfo?: boolean;
+  aiIncludeGuardrailsInfo?: boolean;
+  aiProvideCitations?: boolean;
+  aiDisableTokenCount?: boolean;
+  // System Prompts
+  aiSystemPrompt: string;
+  aiHelperSystemPrompt: string;
+  aiJsonStructuringPrompt: string;
 };
 
 export async function getOrCreateSettings(): Promise<AppSetting> {
@@ -40,6 +64,8 @@ export async function getOrCreateSettings(): Promise<AppSetting> {
     const fallback: AppSetting = {
       id: "fallback",
       webhookUrl: process.env.N8N_WEBHOOK_URL ?? "",
+      aiProviderUrl: process.env.AI_PROVIDER_URL ?? undefined,
+      aiProviderApiKey: process.env.AI_PROVIDER_API_KEY ?? undefined,
       webhookUsername: process.env.N8N_WEBHOOK_USERNAME ?? null,
       webhookPassword: process.env.N8N_WEBHOOK_PASSWORD ?? null,
       webhookHeaders: null,
@@ -50,10 +76,32 @@ export async function getOrCreateSettings(): Promise<AppSetting> {
       timeoutSeconds: Number(
         process.env.N8N_WEBHOOK_TIMEOUT_MS ??
           process.env.NEXT_PUBLIC_WEBHOOK_TIMEOUT_MS ??
-          60
+          180
       ),
       timeoutEnabled: false,
       autoSaveQueries: true,
+      // AI Settings defaults
+      aiTemperature: 0.7,
+      aiTopP: 1.0,
+      aiMaxTokens: 4096,
+      aiStream: false,
+      aiK: 5,
+      aiRetrievalMethod: "none",
+      aiFrequencyPenalty: 0.0,
+      aiPresencePenalty: 0.0,
+      aiStop: null,
+      aiStreamOptions: null,
+      aiKbFilters: null,
+      aiFilterKbContentByQueryMetadata: false,
+      aiIncludeFunctionsInfo: false,
+      aiIncludeRetrievalInfo: false,
+      aiIncludeGuardrailsInfo: false,
+      aiProvideCitations: false,
+      aiDisableTokenCount: false,
+      aiJsonStructuringPrompt: "",
+      // System Prompts
+      aiSystemPrompt: "",
+      aiHelperSystemPrompt: "",
       createdAt: new Date(),
       updatedAt: new Date(),
     } as unknown as AppSetting;
@@ -71,6 +119,8 @@ export function toSerializableSettings(
   return {
     id: s.id,
     webhookUrl: s.webhookUrl,
+    aiProviderUrl: s.aiProviderUrl ?? undefined,
+    aiProviderApiKey: s.aiProviderApiKey ?? undefined,
     timeoutSeconds: s.timeoutSeconds,
     timeoutEnabled: s.timeoutEnabled ?? false,
     autoSaveQueries: s.autoSaveQueries,
@@ -81,5 +131,28 @@ export function toSerializableSettings(
     promptHelperUsername: s.promptHelperUsername ?? "",
     promptHelperPassword: s.promptHelperPassword ?? "",
     promptHelperHeaders: s.promptHelperHeaders ?? null,
+    // AI Settings
+    aiTemperature: s.aiTemperature ?? 0.7,
+    aiTopP: s.aiTopP ?? 1.0,
+    aiMaxTokens: s.aiMaxTokens ?? 4096,
+    aiStream: s.aiStream ?? false,
+    aiK: s.aiK ?? 5,
+    aiRetrievalMethod: s.aiRetrievalMethod ?? "none",
+    aiFrequencyPenalty: s.aiFrequencyPenalty ?? 0.0,
+    aiPresencePenalty: s.aiPresencePenalty ?? 0.0,
+    aiStop: s.aiStop ?? undefined,
+    aiStreamOptions: s.aiStreamOptions ?? undefined,
+    aiKbFilters: s.aiKbFilters ?? undefined,
+    aiFilterKbContentByQueryMetadata:
+      s.aiFilterKbContentByQueryMetadata ?? false,
+    aiIncludeFunctionsInfo: s.aiIncludeFunctionsInfo ?? false,
+    aiIncludeRetrievalInfo: s.aiIncludeRetrievalInfo ?? false,
+    aiIncludeGuardrailsInfo: s.aiIncludeGuardrailsInfo ?? false,
+    aiProvideCitations: s.aiProvideCitations ?? false,
+    aiDisableTokenCount: s.aiDisableTokenCount ?? false,
+    aiJsonStructuringPrompt: s.aiJsonStructuringPrompt ?? "",
+    // System Prompts
+    aiSystemPrompt: s.aiSystemPrompt ?? "",
+    aiHelperSystemPrompt: s.aiHelperSystemPrompt ?? "",
   };
 }

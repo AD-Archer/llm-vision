@@ -8,17 +8,50 @@ const SettingsPayload = z.object({
   timeoutSeconds: z.coerce.number().int().min(60).max(3600).optional(),
   timeoutEnabled: z.boolean().optional(),
   autoSaveQueries: z.boolean().optional(),
-  webhookUsername: z.string().optional(),
-  webhookPassword: z.string().optional(),
+  webhookUsername: z.string().nullable().optional(),
+  webhookPassword: z.string().nullable().optional(),
   webhookHeaders: z
     .union([z.record(z.string(), z.string()), z.null()])
     .optional(),
   promptHelperWebhookUrl: z.string().trim().or(z.literal("")).optional(),
-  promptHelperUsername: z.string().optional(),
-  promptHelperPassword: z.string().optional(),
+  promptHelperUsername: z.string().nullable().optional(),
+  promptHelperPassword: z.string().nullable().optional(),
   promptHelperHeaders: z
     .union([z.record(z.string(), z.string()), z.null()])
     .optional(),
+  aiProviderUrl: z.string().trim().optional(),
+  aiProviderApiKey: z.string().nullable().optional(),
+  // AI Settings
+  aiTemperature: z.coerce.number().min(0).max(2).optional(),
+  aiTopP: z.coerce.number().min(0.01).max(1).optional(),
+  aiMaxTokens: z.coerce.number().int().min(1).optional(),
+  aiStream: z.boolean().optional(),
+  aiK: z.coerce.number().int().min(0).optional(),
+  aiRetrievalMethod: z
+    .enum(["rewrite", "step_back", "sub_queries", "none"])
+    .optional(),
+  aiFrequencyPenalty: z.coerce.number().min(-2).max(2).optional(),
+  aiPresencePenalty: z.coerce.number().min(-2).max(2).optional(),
+  aiStop: z.union([z.string(), z.array(z.string()), z.null()]).optional(),
+  aiStreamOptions: z
+    .union([z.object({ include_usage: z.boolean().optional() }), z.null()])
+    .optional(),
+  aiKbFilters: z
+    .union([
+      z.array(z.object({ index: z.string(), path: z.string().optional() })),
+      z.null(),
+    ])
+    .optional(),
+  aiFilterKbContentByQueryMetadata: z.boolean().optional(),
+  aiIncludeFunctionsInfo: z.boolean().optional(),
+  aiIncludeRetrievalInfo: z.boolean().optional(),
+  aiIncludeGuardrailsInfo: z.boolean().optional(),
+  aiProvideCitations: z.boolean().optional(),
+  aiDisableTokenCount: z.boolean().optional(),
+  aiJsonStructuringPrompt: z.string().optional(),
+  // System Prompts
+  aiSystemPrompt: z.string().optional(),
+  aiHelperSystemPrompt: z.string().optional(),
   userId: z.string(), // Add userId for admin check
 });
 
@@ -69,6 +102,7 @@ export async function PUT(request: NextRequest) {
     const normalizedData: Record<string, unknown> = {};
 
     // Only include fields that were provided
+    console.log("[settings] Received updateData:", updateData);
     if (updateData.webhookUrl !== undefined) {
       normalizedData.webhookUrl = updateData.webhookUrl?.trim() || "";
     }
@@ -107,8 +141,83 @@ export async function PUT(request: NextRequest) {
     if (updateData.promptHelperHeaders !== undefined) {
       normalizedData.promptHelperHeaders = updateData.promptHelperHeaders;
     }
+    if (updateData.aiJsonStructuringPrompt !== undefined) {
+      normalizedData.aiJsonStructuringPrompt =
+        updateData.aiJsonStructuringPrompt?.trim() || "";
+    }
+    if (updateData.aiProviderUrl !== undefined) {
+      normalizedData.aiProviderUrl = updateData.aiProviderUrl?.trim() || "";
+    }
+    if (updateData.aiProviderApiKey !== undefined) {
+      normalizedData.aiProviderApiKey =
+        updateData.aiProviderApiKey?.trim() || null;
+    }
+    // AI Settings
+    if (updateData.aiTemperature !== undefined) {
+      normalizedData.aiTemperature = updateData.aiTemperature;
+    }
+    if (updateData.aiTopP !== undefined) {
+      normalizedData.aiTopP = updateData.aiTopP;
+    }
+    if (updateData.aiMaxTokens !== undefined) {
+      normalizedData.aiMaxTokens = updateData.aiMaxTokens;
+    }
+    if (updateData.aiStream !== undefined) {
+      normalizedData.aiStream = updateData.aiStream;
+    }
+    if (updateData.aiK !== undefined) {
+      normalizedData.aiK = updateData.aiK;
+    }
+    if (updateData.aiRetrievalMethod !== undefined) {
+      normalizedData.aiRetrievalMethod = updateData.aiRetrievalMethod;
+    }
+    if (updateData.aiFrequencyPenalty !== undefined) {
+      normalizedData.aiFrequencyPenalty = updateData.aiFrequencyPenalty;
+    }
+    if (updateData.aiPresencePenalty !== undefined) {
+      normalizedData.aiPresencePenalty = updateData.aiPresencePenalty;
+    }
+    if (updateData.aiStop !== undefined) {
+      normalizedData.aiStop = updateData.aiStop;
+    }
+    if (updateData.aiStreamOptions !== undefined) {
+      normalizedData.aiStreamOptions = updateData.aiStreamOptions;
+    }
+    if (updateData.aiKbFilters !== undefined) {
+      normalizedData.aiKbFilters = updateData.aiKbFilters;
+    }
+    if (updateData.aiFilterKbContentByQueryMetadata !== undefined) {
+      normalizedData.aiFilterKbContentByQueryMetadata =
+        updateData.aiFilterKbContentByQueryMetadata;
+    }
+    if (updateData.aiIncludeFunctionsInfo !== undefined) {
+      normalizedData.aiIncludeFunctionsInfo = updateData.aiIncludeFunctionsInfo;
+    }
+    if (updateData.aiIncludeRetrievalInfo !== undefined) {
+      normalizedData.aiIncludeRetrievalInfo = updateData.aiIncludeRetrievalInfo;
+    }
+    if (updateData.aiIncludeGuardrailsInfo !== undefined) {
+      normalizedData.aiIncludeGuardrailsInfo =
+        updateData.aiIncludeGuardrailsInfo;
+    }
+    if (updateData.aiProvideCitations !== undefined) {
+      normalizedData.aiProvideCitations = updateData.aiProvideCitations;
+    }
+    if (updateData.aiJsonStructuringPrompt !== undefined) {
+      normalizedData.aiJsonStructuringPrompt =
+        updateData.aiJsonStructuringPrompt?.trim() || "";
+    }
+    // System Prompts
+    if (updateData.aiSystemPrompt !== undefined) {
+      normalizedData.aiSystemPrompt = updateData.aiSystemPrompt?.trim() || "";
+    }
+    if (updateData.aiHelperSystemPrompt !== undefined) {
+      normalizedData.aiHelperSystemPrompt =
+        updateData.aiHelperSystemPrompt?.trim() || "";
+    }
 
     // Update settings
+    console.log("[settings] Normalized data:", normalizedData);
     let settings;
     try {
       const existing = await getOrCreateSettings();
@@ -126,8 +235,9 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(toSerializableSettings(settings));
   } catch (error) {
     console.error("[settings] Failed to update settings", error);
+    const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { error: "Failed to update settings" },
+      { error: `Failed to update settings: ${message}` },
       { status: 500 }
     );
   }
@@ -215,6 +325,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Try to find existing settings, create if not found
+    console.log("[settings] Received createData:", updateData);
+    console.log("[settings] Normalized createData:", normalizedData);
     let settings;
     try {
       settings = await getOrCreateSettings();

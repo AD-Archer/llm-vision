@@ -7,9 +7,8 @@ import { useAuth } from "../../context/AuthContext";
 export const dynamic = "force-dynamic";
 
 function SetupPageContent() {
-  const [webhookUrl, setWebhookUrl] = useState("");
-  const [webhookUsername, setWebhookUsername] = useState("");
-  const [webhookPassword, setWebhookPassword] = useState("");
+  const [aiProviderUrl, setAiProviderUrl] = useState("");
+  const [aiProviderApiKey, setAiProviderApiKey] = useState("");
   const [timeoutSeconds, setTimeoutSeconds] = useState(60);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -31,8 +30,8 @@ function SetupPageContent() {
     setIsLoading(true);
 
     try {
-      if (!webhookUrl.trim()) {
-        throw new Error("Webhook URL is required");
+      if (!aiProviderUrl.trim()) {
+        throw new Error("AI Provider URL is required");
       }
 
       if (timeoutSeconds < 10 || timeoutSeconds > 300) {
@@ -44,9 +43,8 @@ function SetupPageContent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          webhookUrl: webhookUrl.trim(),
-          webhookUsername: webhookUsername.trim(),
-          webhookPassword: webhookPassword.trim(),
+          aiProviderUrl: aiProviderUrl.trim(),
+          aiProviderApiKey: aiProviderApiKey.trim(),
           timeoutSeconds,
         }),
       });
@@ -78,7 +76,7 @@ function SetupPageContent() {
               Welcome, {user.name}!
             </h1>
             <p className="text-slate-400 text-sm mb-4">
-              As the first user, you need to configure your n8n webhook
+              As the first user, you need to configure your AI provider
               settings.
             </p>
             <div className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg">
@@ -89,62 +87,38 @@ function SetupPageContent() {
           <form onSubmit={handleSetup} className="space-y-6">
             <div>
               <label
-                htmlFor="webhookUrl"
+                htmlFor="aiProviderUrl"
                 className="block text-sm font-medium text-slate-300 mb-2"
               >
-                n8n Webhook URL
+                AI Provider URL
               </label>
               <input
-                id="webhookUrl"
+                id="aiProviderUrl"
                 type="url"
-                value={webhookUrl}
-                onChange={(e) => setWebhookUrl(e.target.value)}
+                value={aiProviderUrl}
+                onChange={(e) => setAiProviderUrl(e.target.value)}
                 className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                placeholder="https://your-n8n-instance.com/webhook/..."
+                placeholder="https://api.your-provider.com/v1/chat/completions"
                 required
               />
               <p className="text-slate-500 text-xs mt-1">
-                The URL of your n8n webhook endpoint
+                The URL for your AI provider endpoint
               </p>
-            </div>
-
-            <div>
               <label
-                htmlFor="webhookUsername"
+                htmlFor="aiProviderApiKey"
                 className="block text-sm font-medium text-slate-300 mb-2"
               >
-                Webhook Username{" "}
+                AI Provider API Key{" "}
                 <span className="text-slate-400 text-xs">(Optional)</span>
               </label>
               <input
-                id="webhookUsername"
+                id="aiProviderApiKey"
                 type="text"
-                value={webhookUsername}
-                onChange={(e) => setWebhookUsername(e.target.value)}
+                value={aiProviderApiKey}
+                onChange={(e) => setAiProviderApiKey(e.target.value)}
                 className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                placeholder="Webhook username"
+                placeholder="Bearer <token>"
               />
-            </div>
-
-            <div>
-              <label
-                htmlFor="webhookPassword"
-                className="block text-sm font-medium text-slate-300 mb-2"
-              >
-                Webhook Password{" "}
-                <span className="text-slate-400 text-xs">(Optional)</span>
-              </label>
-              <input
-                id="webhookPassword"
-                type="password"
-                value={webhookPassword}
-                onChange={(e) => setWebhookPassword(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                placeholder="Webhook password"
-              />
-              <p className="text-xs text-slate-400 mt-1">
-                You can configure these later in Settings if needed.
-              </p>
             </div>
 
             <div>
