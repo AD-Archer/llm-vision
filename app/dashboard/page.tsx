@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import type { ChartType, QueryRequestBody, FollowUp } from "../../types";
 import type { NormalizedInsight } from "../../utils/chartConfig";
@@ -75,6 +75,8 @@ function DashboardContent() {
   const [followUpQueryLoaded, setFollowUpQueryLoaded] = useState(false);
   const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
   const [showRawJsonInput, setShowRawJsonInput] = useState(false);
+
+  const lastSavedResultRef = useRef<string | null>(null);
 
   const disabled = fetchState === "loading";
   const webhookUrl = settings.webhookUrl?.trim();
@@ -343,6 +345,14 @@ function DashboardContent() {
       return;
     }
 
+    // Create a unique identifier for this result using sessionId + question
+    const resultKey = `${sessionId}:${queryState.question}`;
+
+    // Check if we've already saved this exact query result
+    if (lastSavedResultRef.current === resultKey) {
+      return;
+    }
+
     // Check if this result is already saved (to avoid duplicates on mount)
     const alreadySaved = savedItems.some(
       (item) =>
@@ -351,6 +361,7 @@ function DashboardContent() {
     );
 
     if (!alreadySaved) {
+      lastSavedResultRef.current = resultKey;
       handleSaveChart();
     }
   }, [
@@ -358,6 +369,7 @@ function DashboardContent() {
     queryState.fetchState,
     settings.autoSaveQueries,
     queryState.question,
+    sessionId,
     savedItems,
     handleSaveChart,
     currentParentQueryId,
@@ -415,6 +427,12 @@ function DashboardContent() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    // Prevent multiple submissions
+    if (fetchState === "loading") {
+      return;
+    }
+
     updateQueryState({ errorMessage: null });
 
     if (!canSubmit) {
@@ -433,6 +451,9 @@ function DashboardContent() {
       sessionId,
       chatInput: cleanedQuestion,
     };
+
+    // Reset the saved result ref for new queries
+    lastSavedResultRef.current = null;
 
     await startQuery(payload);
     setFollowUpQuestion("");

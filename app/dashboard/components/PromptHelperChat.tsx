@@ -37,9 +37,8 @@ export function PromptHelperChat({}: PromptHelperChatProps) {
   const [response, setResponse] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const webhookUrl = settings.promptHelperWebhookUrl?.trim();
   const aiProviderUrl = settings.aiProviderUrl?.trim();
-  const canSubmit = Boolean(webhookUrl || aiProviderUrl);
+  const canSubmit = Boolean(aiProviderUrl);
 
   const renderedResponse = useMemo(() => {
     if (!response) return null;
@@ -54,9 +53,10 @@ export function PromptHelperChat({}: PromptHelperChatProps) {
 
     try {
       const payload = {
-        question: question.trim(),
+        question: `Help me improve this data analysis prompt: "${question.trim()}"`,
+        chartType: "auto",
         sessionId,
-        chatInput: question.trim(),
+        chatInput: `Help me improve this data analysis prompt: "${question.trim()}"`,
       };
 
       const res = await fetch("/api/prompt-helper", {
@@ -68,7 +68,8 @@ export function PromptHelperChat({}: PromptHelperChatProps) {
       });
 
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        const errorText = await res.text();
+        throw new Error(`HTTP ${res.status}: ${res.statusText} - ${errorText}`);
       }
 
       // Check if response is streaming

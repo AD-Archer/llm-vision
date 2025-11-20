@@ -137,6 +137,9 @@ export const normalizeInsight = (
   const parsedOutput = parseJsonString(
     (response as { output?: unknown }).output
   );
+  const parsedContent = parseJsonString(
+    (response as { content?: unknown }).content
+  );
   const mergedResponse =
     parsedOutput &&
     typeof parsedOutput === "object" &&
@@ -145,12 +148,20 @@ export const normalizeInsight = (
           ...response,
           ...(parsedOutput as Record<string, unknown>),
         } as InsightResponse)
+      : parsedContent &&
+        typeof parsedContent === "object" &&
+        !Array.isArray(parsedContent)
+      ? ({
+          ...response,
+          ...(parsedContent as Record<string, unknown>),
+        } as InsightResponse)
       : response;
 
   const insightText =
     asString(mergedResponse.insight) ??
     asString((mergedResponse as { summary?: unknown }).summary) ??
     asString((response as { output?: unknown }).output) ??
+    asString((response as { content?: unknown }).content) ??
     "";
 
   const chartData = pickData(
