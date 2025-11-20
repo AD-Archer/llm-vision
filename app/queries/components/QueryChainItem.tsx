@@ -228,14 +228,18 @@ export function QueryChainItem({
 
                   {/* Admin Debug Info - First AI Response */}
                   {user?.isAdmin &&
-                    (chainItem.result.raw as any)._debug_step1_response && (
+                    !!chainItem.result.raw["_debug_step1_response"] && (
                       <div>
                         <h4 className="text-sm font-medium text-yellow-500 mb-3 flex items-center">
                           <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
                           First AI Response (Admin Only)
                         </h4>
                         <pre className="bg-slate-900 rounded-lg p-3 border border-yellow-500/30 overflow-x-auto text-xs text-slate-300 whitespace-pre-wrap max-h-96 overflow-y-auto">
-                          {(chainItem.result.raw as any)._debug_step1_response}
+                          {
+                            chainItem.result.raw[
+                              "_debug_step1_response"
+                            ] as string
+                          }
                         </pre>
                       </div>
                     )}

@@ -34,8 +34,6 @@ export type SerializableSettings = {
   aiIncludeGuardrailsInfo?: boolean;
   aiProvideCitations?: boolean;
   aiDisableTokenCount?: boolean;
-  // Dual-step AI flow
-  aiJsonStructuringPrompt?: string;
   // System Prompts
   aiSystemPrompt: string;
   aiHelperSystemPrompt: string;
@@ -101,7 +99,6 @@ export async function getOrCreateSettings(): Promise<AppSetting> {
       aiProvideCitations: false,
       aiDisableTokenCount: false,
       aiJsonStructuringPrompt: "",
-      aiJsonStructuringPrompt: "",
       // System Prompts
       aiSystemPrompt: "",
       aiHelperSystemPrompt: "",
@@ -153,7 +150,6 @@ export function toSerializableSettings(
     aiIncludeGuardrailsInfo: s.aiIncludeGuardrailsInfo ?? false,
     aiProvideCitations: s.aiProvideCitations ?? false,
     aiDisableTokenCount: s.aiDisableTokenCount ?? false,
-    aiJsonStructuringPrompt: s.aiJsonStructuringPrompt ?? "",
     aiJsonStructuringPrompt: s.aiJsonStructuringPrompt ?? "",
     // System Prompts
     aiSystemPrompt: s.aiSystemPrompt ?? "",
