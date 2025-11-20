@@ -45,14 +45,16 @@ export function ModelManager({
                 typeof model.label === "string" &&
                 model.label.trim() !== "" &&
                 typeof model.modelName === "string" &&
-                model.modelName.trim() !== ""
+                model.modelName.trim() !== "" &&
+                typeof model.webhookUrl === "string" &&
+                model.webhookUrl.trim() !== ""
             )
             .map((model) => ({
               id: model.id || crypto.randomUUID(),
               name: model.name || model.label,
               label: model.label,
               modelName: model.modelName,
-              // webhookUrl removed; models now use the configured AI provider
+              webhookUrl: model.webhookUrl,
               method: model.method || "POST",
               timeoutMs: model.timeoutMs || 45000,
               headers: model.headers || [],
@@ -82,13 +84,20 @@ export function ModelManager({
     if (!selectedSlotId) return;
 
     const slot = slots.find((s) => s.id === selectedSlotId);
-    if (!slot || !slot.label.trim() || !slot.modelName.trim()) return;
+    if (
+      !slot ||
+      !slot.label.trim() ||
+      !slot.modelName.trim() ||
+      !slot.webhookUrl.trim()
+    )
+      return;
 
     const config: SavedModelConfig = {
       id: crypto.randomUUID(),
       name: slot.label.trim(),
       label: slot.label.trim(),
       modelName: slot.modelName,
+      webhookUrl: slot.webhookUrl,
       method: slot.method,
       timeoutMs: slot.timeoutMs,
       headers: slot.headers,
@@ -111,6 +120,7 @@ export function ModelManager({
       name: config.name || config.label,
       label: config.label,
       modelName: config.modelName,
+      webhookUrl: config.webhookUrl,
       method: config.method || "POST",
       timeoutMs: config.timeoutMs || 45000,
       headers: config.headers || [],
@@ -161,7 +171,9 @@ export function ModelManager({
     onQuickRun?.(selectedModels);
   };
 
-  const availableSlots = slots.filter((slot) => slot.modelName.trim());
+  const availableSlots = slots.filter(
+    (slot) => slot.modelName.trim() && slot.webhookUrl.trim()
+  );
 
   return (
     <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-4 sm:p-6 shadow-xl">
@@ -256,7 +268,9 @@ export function ModelManager({
                     <p className="text-sm text-slate-400 mt-1">
                       {model.modelName}
                     </p>
-                    {/* webhookUrl removed; provider is global */}
+                    <p className="text-xs text-slate-500 mt-1 truncate">
+                      {model.webhookUrl}
+                    </p>
                     <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
                       <span>Input: ${model.inputTokensPerMillion || 0}/M</span>
                       <span>

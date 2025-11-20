@@ -1,6 +1,7 @@
 services:
-  llm-visi-dash:
+  llm-vision:
     image: adarcher/llm-visi-dash
+    container_name: llm-vision
     ports:
       - "3000:3000"
     environment:
@@ -44,6 +45,18 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+  db-init:
+    image: adarcher/llm-visi-dash
+    container_name: db-init
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/llm_visi_dash?schema=public
+    command: npx prisma db push --skip-generate
+    depends_on:
+      - llm-vision
+    networks:
+      - llm-visi-dash-network
+    profiles:
+      - init
 
 volumes:
   postgres_data:

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { performance } from "node:perf_hooks";
 import { prisma } from "@/lib/prisma";
-import { invokeAiProvider } from "@/lib/aiClient";
-import { getOrCreateSettings } from "@/lib/settings";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 
@@ -25,7 +23,7 @@ const HeaderRecordSchema = z.record(z.string(), z.string());
 const TargetSchema = z
   .object({
     label: z.string().min(1).max(60),
-    webhookUrl: z.string().url().optional(),
+    webhookUrl: z.string().url(),
     modelName: z.string().min(1).max(120),
     method: z.enum(["POST", "PUT", "PATCH"]).optional(),
     color: z.string().optional(),
@@ -244,8 +242,7 @@ function extractAnswer(payload: unknown, fallback: string) {
 async function executeTarget(
   resultId: string,
   target: TargetInput,
-  params: { prompt: string; expectedAnswer?: string; experimentId: string },
-  settings: Awaited<ReturnType<typeof getOrCreateSettings>>
+  params: { prompt: string; expectedAnswer?: string; experimentId: string }
 ): Promise<RunOutcome> {
   const timeout = target.timeoutMs ?? 45000;
   const controller = new AbortController();
@@ -276,52 +273,15 @@ async function executeTarget(
       ...(target.headers ?? {}),
     };
 
-    // If an AI provider is configured via env, invoke it directly instead of
-    // forwarding to the target's webhook. This replaces previous behavior
-    // where a separate n8n webhook was used.
-    const aiProviderUrl =
-      settings.aiProviderUrl ?? process.env.AI_PROVIDER_URL ?? undefined;
-    const aiProviderApiKey =
-      settings.aiProviderApiKey ?? process.env.AI_PROVIDER_API_KEY ?? undefined;
-    const targetUrl = aiProviderUrl ?? target.webhookUrl;
-    const usingAiProvider = targetUrl === aiProviderUrl;
-
-    // If target URL is not set (neither a target-specific webhook nor a configured
-    // AI_PROVIDER_URL), fail early and mark the run as failed.
-    if (!targetUrl) {
-      await prisma.aiExperimentResult.update({
-        where: { id: resultId },
-        data: {
-          status: AiRunStatus.FAILED,
-          errorMessage: "No target webhook URL or AI provider configured",
-          completedAt: new Date(),
-        },
-      });
-
-      clearTimeout(timer);
-      return { resultId, status: AiRunStatus.FAILED };
-    }
-
-    const providerResponse = await invokeAiProvider(
-      targetUrl,
-      usingAiProvider ? aiProviderApiKey : undefined,
-      payload,
+    const response = await fetch(target.webhookUrl, {
+      method: target.method ?? "POST",
       headers,
-      target.method ?? "POST",
-      timeout
-    );
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
 
-    const response = {
-      ok: providerResponse.ok,
-      status: providerResponse.status,
-      statusText: providerResponse.statusText ?? undefined,
-    } as Response;
-
-    const rawText =
-      typeof providerResponse.body === "string"
-        ? (providerResponse.body as string)
-        : JSON.stringify(providerResponse.body);
-    let parsedResponse: unknown = providerResponse.body;
+    const rawText = await response.text();
+    let parsedResponse: unknown = rawText;
     try {
       parsedResponse = JSON.parse(rawText);
     } catch {
@@ -472,8 +432,6 @@ export async function POST(request: NextRequest) {
 
     const startedAt = Date.now();
 
-    const settings = await getOrCreateSettings();
-
     const experiment = await prisma.aiExperiment.create({
       data: {
         userId: payload.userId,
@@ -498,11 +456,7 @@ export async function POST(request: NextRequest) {
             slotIndex: index,
             label: target.label,
             color: target.color,
-            webhookUrl:
-              target.webhookUrl ??
-              settings.aiProviderUrl ??
-              process.env.AI_PROVIDER_URL ??
-              null,
+            webhookUrl: target.webhookUrl,
             modelName: target.modelName,
             method: target.method ?? "POST",
           },
@@ -514,16 +468,11 @@ export async function POST(request: NextRequest) {
       payload.maxConcurrency ?? 6,
       queuedResults,
       (result, idx) =>
-        executeTarget(
-          result.id,
-          payload.targets[idx],
-          {
-            prompt: payload.prompt,
-            expectedAnswer: payload.expectedAnswer,
-            experimentId: experiment.id,
-          },
-          settings
-        )
+        executeTarget(result.id, payload.targets[idx], {
+          prompt: payload.prompt,
+          expectedAnswer: payload.expectedAnswer,
+          experimentId: experiment.id,
+        })
     );
 
     const completed = runOutcomes.filter(

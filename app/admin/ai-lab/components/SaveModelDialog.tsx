@@ -33,6 +33,7 @@ export function SaveModelDialog({ slot, onClose, onSaved }: Props) {
       name: slot.label.trim(),
       label: slot.label.trim(),
       modelName: slot.modelName,
+      webhookUrl: slot.webhookUrl,
       method: slot.method,
       timeoutMs: slot.timeoutMs,
       headers: slot.headers,

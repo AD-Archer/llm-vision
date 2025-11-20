@@ -145,7 +145,7 @@ model AiExperimentResult {
   slotIndex        Int
   label            String
   color            String?
-  webhookUrl       String?
+  webhookUrl       String
   modelName        String?
   method           String       @default("POST")
   status           AiRunStatus  @default(QUEUED)

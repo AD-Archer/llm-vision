@@ -1,6 +1,6 @@
 import type { ChartConfig, ChartType, InsightResponse } from "../types";
 
-type Primitive = string | number | boolean | null;
+type Primitive = string | number | boolean | null | unknown;
 
 const isRecordArray = (
   value: unknown
@@ -100,6 +100,13 @@ const chooseYKeys = (
         if (key.toLowerCase().match(/(value|amount|total|count|score|y)/)) {
           keyScores[key] += 1;
         }
+      } else if (
+        Array.isArray(value) &&
+        value.every((v) => typeof v === "number")
+      ) {
+        // Treat array of numbers as a potential yKey, e.g., average
+        const score = keyScores[key] ?? 0;
+        keyScores[key] = score + 2;
       }
     });
   });
@@ -140,13 +147,14 @@ export const normalizeInsight = (
   const parsedContent = parseJsonString(
     (response as { content?: unknown }).content
   );
+  const parsedResponse = parsedOutput || parsedContent;
   const mergedResponse =
-    parsedOutput &&
-    typeof parsedOutput === "object" &&
-    !Array.isArray(parsedOutput)
+    parsedResponse &&
+    typeof parsedResponse === "object" &&
+    !Array.isArray(parsedResponse)
       ? ({
           ...response,
-          ...(parsedOutput as Record<string, unknown>),
+          ...(parsedResponse as Record<string, unknown>),
         } as InsightResponse)
       : parsedContent &&
         typeof parsedContent === "object" &&
@@ -173,35 +181,38 @@ export const normalizeInsight = (
       : undefined
   );
 
+  const derivedChartData = chartData;
+
   const providedType = mergedResponse.chart?.type ?? "auto";
   const providedXKey = mergedResponse.chart?.xKey;
   const providedYKeys = mergedResponse.chart?.yKeys;
 
-  const xKey = providedXKey ?? chooseXKey(chartData);
+  const xKey = providedXKey ?? chooseXKey(derivedChartData);
   const yKeys =
     providedYKeys && providedYKeys.length
       ? providedYKeys
-      : chooseYKeys(chartData, xKey);
+      : chooseYKeys(derivedChartData, xKey);
 
-  if (!chartData.length || !xKey || !yKeys.length) {
+  if (!derivedChartData.length || !xKey || !yKeys.length) {
     return { raw: response, insightText };
   }
 
   const type = (
     providedType === "auto"
-      ? inferChartType(chartData, yKeys.length, providedType)
+      ? inferChartType(derivedChartData, yKeys.length, providedType)
       : providedType
   ) as ChartType;
 
   const chart: ChartConfig = {
     type: type === "auto" ? "bar" : type,
-    data: chartData,
+    data: derivedChartData,
     xKey,
     yKeys,
     meta: {
       title:
         asString(mergedResponse.chart?.meta?.title) ??
-        asString((mergedResponse as { title?: unknown }).title),
+        asString((mergedResponse as { title?: unknown }).title) ??
+        "PCEP Pass/Fail Analysis",
       description: asString(mergedResponse.chart?.meta?.description),
       valueKey: asString(mergedResponse.chart?.meta?.valueKey),
       visualizationName:

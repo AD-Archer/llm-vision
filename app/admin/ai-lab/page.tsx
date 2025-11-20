@@ -74,6 +74,7 @@ const makeId = () =>
 const createSlot = (index: number): TargetSlotState => ({
   id: makeId(),
   label: `AI Target ${index + 1}`,
+  webhookUrl: "",
   modelName: "",
   method: "POST",
   color: COLOR_PALETTE[index % COLOR_PALETTE.length],
@@ -190,7 +191,8 @@ function AiLabPageInner() {
   }, [currentExperiment]);
 
   const availableTargets = useMemo(
-    () => slots.filter((slot) => slot.modelName.trim()),
+    () =>
+      slots.filter((slot) => slot.webhookUrl.trim() && slot.modelName.trim()),
     [slots]
   );
 
@@ -266,7 +268,9 @@ function AiLabPageInner() {
     config: Omit<SavedModelConfig, "id" | "createdAt" | "updatedAt">
   ) => {
     // Find the first empty slot or create a new one
-    const emptySlotIndex = slots.findIndex((slot) => !slot.modelName.trim());
+    const emptySlotIndex = slots.findIndex(
+      (slot) => !slot.modelName.trim() && !slot.webhookUrl.trim()
+    );
     if (emptySlotIndex >= 0) {
       // Update existing empty slot
       handleSlotChange(slots[emptySlotIndex].id, {
@@ -300,6 +304,8 @@ function AiLabPageInner() {
         model &&
         typeof model.label === "string" &&
         model.label.trim() &&
+        typeof model.webhookUrl === "string" &&
+        model.webhookUrl.trim() &&
         typeof model.modelName === "string" &&
         model.modelName.trim()
     );
@@ -327,6 +333,7 @@ function AiLabPageInner() {
 
           const target: {
             label: string;
+            webhookUrl: string;
             modelName: string;
             method?: "POST" | "PUT" | "PATCH";
             color?: string;
@@ -338,7 +345,7 @@ function AiLabPageInner() {
           } = {
             label:
               requestCount > 1 ? `${model.label} (${index + 1})` : model.label,
-            // No per-target webhook: the server will call the configured AI provider
+            webhookUrl: model.webhookUrl,
             modelName: model.modelName,
             method: model.method,
             color: "#22d3ee", // Default color for quick runs
@@ -444,7 +451,9 @@ function AiLabPageInner() {
     }
 
     if (!availableTargets.length) {
-      setRunError("Configure at least one target with a model name.");
+      setRunError(
+        "Configure at least one target with a webhook and model name."
+      );
       return;
     }
 
@@ -454,6 +463,7 @@ function AiLabPageInner() {
       );
       const targetsPayload = availableTargets.map((slot) => ({
         label: slot.label.trim(),
+        webhookUrl: slot.webhookUrl.trim(),
         modelName: slot.modelName.trim(),
         method: slot.method,
         color: slot.color,
