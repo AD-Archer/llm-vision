@@ -183,7 +183,6 @@ export function AdminPanel({
               <UserCard
                 key={user.id}
                 user={user}
-                isExpanded={expandedUser === user.id}
                 onToggle={() => toggleUserExpanded(user.id)}
                 onRemove={removeUser}
                 onResetPassword={async (
@@ -380,10 +379,7 @@ export function AdminPanel({
             <h3 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4">
               Prompt Helper Webhook
             </h3>
-            <PromptHelperConfigurationForm
-              settings={settings}
-              onUpdateSettings={updateSettings}
-            />
+            <PromptHelperConfigurationForm />
           </div>
         </div>
       )}
@@ -415,36 +411,27 @@ function ApiConfigurationForm({
   onTimeoutSecondsChange,
 }: ApiConfigurationFormProps) {
   const { user } = useAuth();
-  const [webhookUrl, setWebhookUrl] = useState(settings.webhookUrl || "");
-  const [webhookUsername, setWebhookUsername] = useState(
-    settings.webhookUsername || ""
+  // Deprecated: per-target webhooks removed. Use AI provider below.
+  const [aiProviderUrl, setAiProviderUrl] = useState(
+    settings.aiProviderUrl || ""
   );
-  const [webhookPassword, setWebhookPassword] = useState(
-    settings.webhookPassword || ""
-  );
-  const [webhookHeaders, setWebhookHeaders] = useState<Record<string, string>>(
-    settings.webhookHeaders || {}
+  const [aiProviderApiKey, setAiProviderApiKey] = useState(
+    settings.aiProviderApiKey || ""
   );
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
       const updates: Partial<AppSettings> = {
-        webhookUrl,
+        aiProviderUrl,
+        aiProviderApiKey,
         timeoutSeconds,
-        webhookUsername,
-        webhookPassword,
       };
-      if (Object.keys(webhookHeaders).length > 0) {
-        updates.webhookHeaders = webhookHeaders;
-      } else if (
-        settings.webhookHeaders &&
-        Object.keys(settings.webhookHeaders).length > 0
-      ) {
-        updates.webhookHeaders = null;
-      }
+      // custom webhook headers removed; no action needed
       await onUpdateSettings(updates, user!.id);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -455,29 +442,67 @@ function ApiConfigurationForm({
     }
   };
 
+  const handleTestProvider = async () => {
+    setIsTesting(true);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/admin/ai-provider/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user!.id }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setTestResult(`Success: ${data.status}`);
+    } catch (err) {
+      setTestResult(err instanceof Error ? err.message : "Test failed");
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
   const isModified =
-    webhookUrl !== (settings.webhookUrl || "") ||
-    timeoutSeconds !== (settings.timeoutSeconds || 60) ||
-    webhookUsername !== (settings.webhookUsername || "") ||
-    webhookPassword !== (settings.webhookPassword || "") ||
-    JSON.stringify(webhookHeaders) !==
-      JSON.stringify(settings.webhookHeaders || {});
+    aiProviderUrl !== (settings.aiProviderUrl || "") ||
+    aiProviderApiKey !== (settings.aiProviderApiKey || "") ||
+    timeoutSeconds !== (settings.timeoutSeconds || 60);
 
   return (
     <div className="space-y-4">
-      <div>
+      {/* RAG webhook removed - use AI Provider URL instead */}
+
+      <div className="mt-3">
         <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-2">
-          Rag Webhook URL
+          AI Provider URL
         </label>
         <input
           type="url"
-          value={webhookUrl}
-          onChange={(e) => setWebhookUrl(e.target.value)}
-          placeholder="https://n8n.example.com/webhook/..."
+          value={aiProviderUrl}
+          onChange={(e) => setAiProviderUrl(e.target.value)}
+          placeholder="https://agents.do-ai.run/api/v1/chat/completions"
           className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
         />
         <p className="text-xs text-slate-400 mt-1">
-          Your n8n webhook URL for RAG workflow queries
+          Optional: Direct AI provider endpoint to replace external webhooks.
+        </p>
+      </div>
+
+      <div className="mt-3">
+        <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-2">
+          AI Provider API Key
+        </label>
+        <input
+          type="text"
+          value={aiProviderApiKey}
+          onChange={(e) => setAiProviderApiKey(e.target.value)}
+          placeholder="Bearer <your-token>"
+          className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        />
+        <p className="text-xs text-slate-400 mt-1">
+          Optional: API key for the AI provider. Sensitive values will be stored
+          and displayed masked.
         </p>
       </div>
 
@@ -531,108 +556,9 @@ function ApiConfigurationForm({
         )}
       </div>
 
-      <div className="border-t border-slate-600 pt-4">
-        <h4 className="text-sm font-medium text-slate-300 mb-3">
-          Webhook Authentication (Optional)
-        </h4>
-        <div className="space-y-3">
-          <div>
-            <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-2">
-              Username
-            </label>
-            <input
-              type="text"
-              value={webhookUsername}
-              onChange={(e) => setWebhookUsername(e.target.value)}
-              className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-2">
-              Password
-            </label>
-            <input
-              type="password"
-              value={webhookPassword}
-              onChange={(e) => setWebhookPassword(e.target.value)}
-              className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-        </div>
-      </div>
+      {/* Webhook Authentication and Custom Headers removed; AI Provider authentication uses API Key */}
 
-      <div className="border-t border-slate-600 pt-4">
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="text-sm font-medium text-slate-300">
-            Custom Headers (Optional)
-          </h4>
-          <button
-            onClick={() => {
-              const key = `header${Object.keys(webhookHeaders).length + 1}`;
-              setWebhookHeaders({ ...webhookHeaders, [key]: "" });
-            }}
-            className="px-3 py-1 text-xs bg-slate-600 hover:bg-slate-700 text-white rounded transition-colors"
-          >
-            Add Header
-          </button>
-        </div>
-        <div className="space-y-2">
-          {Object.entries(webhookHeaders).map(([key, value]) => (
-            <div key={key} className="flex gap-2 items-center">
-              <input
-                type="text"
-                placeholder="Header name"
-                value={key}
-                onChange={(e) => {
-                  const newKey = e.target.value;
-                  const newHeaders = { ...webhookHeaders };
-                  delete newHeaders[key];
-                  newHeaders[newKey] = value;
-                  setWebhookHeaders(newHeaders);
-                }}
-                className="flex-1 px-3 py-2 bg-slate-800 border border-slate-600 rounded text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              />
-              <input
-                type="text"
-                placeholder="Header value"
-                value={value}
-                onChange={(e) =>
-                  setWebhookHeaders({
-                    ...webhookHeaders,
-                    [key]: e.target.value,
-                  })
-                }
-                className="flex-1 px-3 py-2 bg-slate-800 border border-slate-600 rounded text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              />
-              <button
-                onClick={() => {
-                  const newHeaders = { ...webhookHeaders };
-                  delete newHeaders[key];
-                  setWebhookHeaders(newHeaders);
-                }}
-                className="px-2 py-2 text-red-400 hover:text-red-300 transition-colors"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-          ))}
-        </div>
-        <p className="text-xs text-slate-400 mt-2">
-          Add custom headers for OAuth or other authentication requirements
-        </p>
-      </div>
+      {/* Custom headers removed */}
 
       <div className="flex gap-2 pt-4 border-t border-slate-600">
         <button
@@ -642,6 +568,16 @@ function ApiConfigurationForm({
         >
           {isSaving ? "Saving..." : "Save Settings"}
         </button>
+        <button
+          onClick={handleTestProvider}
+          disabled={isTesting || !aiProviderUrl}
+          className="px-4 py-2 bg-slate-700 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+        >
+          {isTesting ? "Testing..." : "Test AI Provider"}
+        </button>
+        {testResult && (
+          <span className="ml-2 text-sm text-slate-300">{testResult}</span>
+        )}
         {saveSuccess && (
           <span className="text-green-400 text-sm self-center">
             Settings saved!
@@ -652,207 +588,20 @@ function ApiConfigurationForm({
   );
 }
 
-interface PromptHelperConfigurationFormProps {
-  settings: AppSettings;
-  onUpdateSettings: (
-    updates: Partial<AppSettings>,
-    userId: string
-  ) => Promise<void>;
-}
-
-function PromptHelperConfigurationForm({
-  settings,
-  onUpdateSettings,
-}: PromptHelperConfigurationFormProps) {
-  const { user } = useAuth();
-  const [webhookUrl, setWebhookUrl] = useState(
-    settings.promptHelperWebhookUrl || ""
-  );
-  const [webhookUsername, setWebhookUsername] = useState(
-    settings.promptHelperUsername || ""
-  );
-  const [webhookPassword, setWebhookPassword] = useState(
-    settings.promptHelperPassword || ""
-  );
-  const [headers, setHeaders] = useState<Record<string, string>>(
-    settings.promptHelperHeaders || {}
-  );
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      const updates: Partial<AppSettings> = {
-        promptHelperWebhookUrl: webhookUrl,
-        promptHelperUsername: webhookUsername,
-        promptHelperPassword: webhookPassword,
-      };
-      if (Object.keys(headers).length > 0) {
-        updates.promptHelperHeaders = headers;
-      }
-      await onUpdateSettings(updates, user!.id);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (error) {
-      console.error("Failed to save settings", error);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const isModified =
-    webhookUrl !== (settings.promptHelperWebhookUrl || "") ||
-    webhookUsername !== (settings.promptHelperUsername || "") ||
-    webhookPassword !== (settings.promptHelperPassword || "") ||
-    JSON.stringify(headers) !==
-      JSON.stringify(settings.promptHelperHeaders || {});
-
-  const addHeader = () => {
-    const key = `header${Object.keys(headers).length + 1}`;
-    setHeaders({ ...headers, [key]: "" });
-  };
-
-  const updateHeader = (key: string, value: string) => {
-    setHeaders({ ...headers, [key]: value });
-  };
-
-  const removeHeader = (key: string) => {
-    const newHeaders = { ...headers };
-    delete newHeaders[key];
-    setHeaders(newHeaders);
-  };
-
+function PromptHelperConfigurationForm() {
+  // Prompt helper webhook settings removed. Use AI Provider configuration above.
   return (
     <div className="space-y-4">
-      <div>
-        <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-2">
-          Prompt Helper Webhook URL
-        </label>
-        <input
-          type="url"
-          value={webhookUrl}
-          onChange={(e) => setWebhookUrl(e.target.value)}
-          placeholder="https://n8n.example.com/webhook/prompt-helper"
-          className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-        />
-        <p className="text-xs text-slate-400 mt-1">
-          Webhook URL for the prompt helper AI chat
-        </p>
-      </div>
-
-      <div className="border-t border-slate-600 pt-4">
-        <h4 className="text-sm font-medium text-slate-300 mb-3">
-          Authentication (Optional)
-        </h4>
-        <div className="space-y-3">
-          <div>
-            <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-2">
-              Username
-            </label>
-            <input
-              type="text"
-              value={webhookUsername}
-              onChange={(e) => setWebhookUsername(e.target.value)}
-              className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-2">
-              Password
-            </label>
-            <input
-              type="password"
-              value={webhookPassword}
-              onChange={(e) => setWebhookPassword(e.target.value)}
-              className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="border-t border-slate-600 pt-4">
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="text-sm font-medium text-slate-300">
-            Custom Headers (Optional)
-          </h4>
-          <button
-            onClick={addHeader}
-            className="px-3 py-1 text-xs bg-slate-600 hover:bg-slate-700 text-white rounded transition-colors"
-          >
-            Add Header
-          </button>
-        </div>
-        <div className="space-y-2">
-          {Object.entries(headers).map(([key, value]) => (
-            <div key={key} className="flex gap-2 items-center">
-              <input
-                type="text"
-                placeholder="Header name"
-                value={key}
-                onChange={(e) => {
-                  const newKey = e.target.value;
-                  const newHeaders = { ...headers };
-                  delete newHeaders[key];
-                  newHeaders[newKey] = value;
-                  setHeaders(newHeaders);
-                }}
-                className="flex-1 px-3 py-2 bg-slate-800 border border-slate-600 rounded text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              />
-              <input
-                type="text"
-                placeholder="Header value"
-                value={value}
-                onChange={(e) => updateHeader(key, e.target.value)}
-                className="flex-1 px-3 py-2 bg-slate-800 border border-slate-600 rounded text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              />
-              <button
-                onClick={() => removeHeader(key)}
-                className="px-2 py-2 text-red-400 hover:text-red-300 transition-colors"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-          ))}
-        </div>
-        <p className="text-xs text-slate-400 mt-2">
-          Add custom headers for webhook authentication or other requirements
-        </p>
-      </div>
-
-      <div className="flex gap-2 pt-4 border-t border-slate-600">
-        <button
-          onClick={handleSave}
-          disabled={!isModified || isSaving}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
-        >
-          {isSaving ? "Saving..." : "Save Settings"}
-        </button>
-        {saveSuccess && (
-          <span className="text-green-400 text-sm self-center">
-            Settings saved!
-          </span>
-        )}
-      </div>
+      <p className="text-xs text-slate-400">
+        Prompt helper functionality uses the configured AI Provider. No
+        additional webhook configuration is required.
+      </p>
     </div>
   );
 }
 
 interface UserCardProps {
   user: UserStats;
-  isExpanded: boolean;
   onToggle: () => void;
   onRemove: (userId: string) => void;
   onResetPassword: (userId: string, newPassword: string) => Promise<void>;
@@ -862,7 +611,7 @@ interface UserCardProps {
 
 function UserCard({
   user,
-  isExpanded,
+
   onToggle,
   onRemove,
   onResetPassword,
@@ -893,197 +642,112 @@ function UserCard({
         onClick={onToggle}
         className="w-full px-3 sm:px-4 py-3 sm:py-4 text-left hover:bg-slate-600 transition-colors flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
       >
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-xs sm:text-sm font-semibold text-white truncate">
-              {user.name}
-            </h3>
-            <span
-              className={`px-2 py-0.5 rounded text-xs font-medium ${
-                user.status === "active"
-                  ? "bg-green-900/30 text-green-400"
-                  : user.status === "inactive"
-                  ? "bg-yellow-900/30 text-yellow-400"
-                  : "bg-blue-900/30 text-blue-400"
-              }`}
-            >
-              {user.status}
-            </span>
-          </div>
-          <p className="text-xs sm:text-sm text-slate-400 truncate">
-            {user.email}
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="text-white font-medium">{user.name}</div>
+          <div className="text-xs text-slate-400">{user.email}</div>
         </div>
-        <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
-          <svg
-            className={`w-4 h-4 sm:w-5 sm:h-5 text-slate-400 transition-transform ${
-              isExpanded ? "rotate-180" : ""
-            }`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 14l-7 7m0 0l-7-7m7 7V3"
-            />
-          </svg>
+        <div className="text-xs text-slate-400">
+          {user.isAdmin ? "Administrator" : "User"}
         </div>
       </button>
 
-      {isExpanded && (
-        <div className="px-3 sm:px-4 py-3 sm:py-4 bg-slate-800 border-t border-slate-600 space-y-3 sm:space-y-4">
-          {/* User Info */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm text-slate-300">
-            <div>
-              <p className="text-slate-400">Created:</p>
-              <p>{new Date(user.createdAt).toLocaleDateString()}</p>
-            </div>
+      <div className="p-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label className="text-xs text-slate-300">Advanced Charts</label>
+            <input
+              type="checkbox"
+              checked={features.advancedChartsEnabled !== false}
+              onChange={(e) =>
+                handleFeatureChange("advancedChartsEnabled", e.target.checked)
+              }
+              className="ml-2"
+            />
           </div>
-
-          {/* Feature Controls */}
-          <div className="space-y-2 sm:space-y-3 border-t border-slate-600 pt-3 sm:pt-4">
-            <h4 className="text-xs sm:text-sm font-semibold text-white">
-              Features
-            </h4>
-
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id={`api-${user.id}`}
-                checked={features.apiAccessEnabled !== false}
-                onChange={(e) =>
-                  handleFeatureChange("apiAccessEnabled", e.target.checked)
-                }
-                className="w-4 h-4 bg-slate-700 border border-slate-600 rounded"
-              />
-              <label
-                htmlFor={`api-${user.id}`}
-                className="text-xs sm:text-sm text-slate-300 cursor-pointer"
-              >
-                API Access
-              </label>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id={`charts-${user.id}`}
-                checked={features.advancedChartsEnabled !== false}
-                onChange={(e) =>
-                  handleFeatureChange("advancedChartsEnabled", e.target.checked)
-                }
-                className="w-4 h-4 bg-slate-700 border border-slate-600 rounded"
-              />
-              <label
-                htmlFor={`charts-${user.id}`}
-                className="text-xs sm:text-sm text-slate-300 cursor-pointer"
-              >
-                Advanced Charts
-              </label>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id={`webhooks-${user.id}`}
-                checked={features.customWebhooksEnabled !== false}
-                onChange={(e) =>
-                  handleFeatureChange("customWebhooksEnabled", e.target.checked)
-                }
-                className="w-4 h-4 bg-slate-700 border border-slate-600 rounded"
-              />
-              <label
-                htmlFor={`webhooks-${user.id}`}
-                className="text-xs sm:text-sm text-slate-300 cursor-pointer"
-              >
-                Custom Webhooks
-              </label>
-            </div>
-
-            <div>
-              <label
-                htmlFor={`max-queries-${user.id}`}
-                className="block text-xs sm:text-sm text-slate-300 mb-1"
-              >
-                Max Queries/Day
-              </label>
-              <input
-                id={`max-queries-${user.id}`}
-                type="number"
-                min="10"
-                max="10000"
-                value={features.maxQueriesPerDay || 100}
-                onChange={(e) =>
-                  handleFeatureChange(
-                    "maxQueriesPerDay",
-                    parseInt(e.target.value)
-                  )
-                }
-                className="w-full px-2 py-1 text-xs sm:text-sm bg-slate-700 border border-slate-600 rounded text-white"
-              />
-            </div>
+          <div>
+            <label className="text-xs text-slate-300">Custom Webhooks</label>
+            <input
+              type="checkbox"
+              checked={features.customWebhooksEnabled !== false}
+              onChange={(e) =>
+                handleFeatureChange("customWebhooksEnabled", e.target.checked)
+              }
+              className="ml-2"
+            />
           </div>
-
-          {/* Actions */}
-          <div className="flex gap-2 border-t border-slate-600 pt-3 sm:pt-4">
-            <button
-              onClick={() => setShowResetPassword(!showResetPassword)}
-              className="flex-1 px-3 py-1.5 sm:py-2 text-xs sm:text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium rounded transition-colors"
-            >
-              {showResetPassword ? "Cancel Reset" : "Reset Password"}
-            </button>
-            {onMakeAdmin && !user.isAdmin && (
-              <button
-                onClick={() => onMakeAdmin(user.id)}
-                className="flex-1 px-3 py-1.5 sm:py-2 text-xs sm:text-sm bg-purple-600 hover:bg-purple-700 text-white font-medium rounded transition-colors"
-              >
-                Make Admin
-              </button>
-            )}
-            <button
-              onClick={() => onRemove(user.id)}
-              className="flex-1 px-3 py-1.5 sm:py-2 text-xs sm:text-sm bg-red-600 hover:bg-red-700 text-white font-medium rounded transition-colors"
-            >
-              Remove User
-            </button>
+          <div>
+            <label className="text-xs text-slate-300">Max Queries/Day</label>
+            <input
+              type="number"
+              min={10}
+              max={10000}
+              value={features.maxQueriesPerDay || 100}
+              onChange={(e) =>
+                handleFeatureChange(
+                  "maxQueriesPerDay",
+                  parseInt(e.target.value)
+                )
+              }
+              className="w-full px-2 py-1 text-xs sm:text-sm bg-slate-700 border border-slate-600 rounded text-white"
+            />
           </div>
-
-          {showResetPassword && (
-            <div className="mt-3 space-y-2">
-              <input
-                type="password"
-                placeholder="New password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full px-3 py-2 text-sm bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400"
-              />
-              <button
-                onClick={async () => {
-                  if (newPassword.length < 6) {
-                    alert("Password must be at least 6 characters");
-                    return;
-                  }
-                  try {
-                    await onResetPassword(user.id, newPassword);
-                    setNewPassword("");
-                    setShowResetPassword(false);
-                  } catch (error) {
-                    alert(
-                      "Failed to reset password: " + (error as Error).message
-                    );
-                  }
-                }}
-                className="w-full px-3 py-2 text-sm bg-green-600 hover:bg-green-700 text-white font-medium rounded transition-colors"
-              >
-                Confirm Reset
-              </button>
-            </div>
-          )}
         </div>
-      )}
+
+        <div className="flex gap-2 border-t border-slate-600 pt-3 sm:pt-4 mt-3">
+          <button
+            onClick={() => setShowResetPassword(!showResetPassword)}
+            className="flex-1 px-3 py-1.5 sm:py-2 text-xs sm:text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium rounded transition-colors"
+          >
+            {showResetPassword ? "Cancel Reset" : "Reset Password"}
+          </button>
+          {onMakeAdmin && !user.isAdmin && (
+            <button
+              onClick={() => onMakeAdmin(user.id)}
+              className="flex-1 px-3 py-1.5 sm:py-2 text-xs sm:text-sm bg-purple-600 hover:bg-purple-700 text-white font-medium rounded transition-colors"
+            >
+              Make Admin
+            </button>
+          )}
+          <button
+            onClick={() => onRemove(user.id)}
+            className="flex-1 px-3 py-1.5 sm:py-2 text-xs sm:text-sm bg-red-600 hover:bg-red-700 text-white font-medium rounded transition-colors"
+          >
+            Remove User
+          </button>
+        </div>
+
+        {showResetPassword && (
+          <div className="mt-3 space-y-2">
+            <input
+              type="password"
+              placeholder="New password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full px-3 py-2 text-sm bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400"
+            />
+            <button
+              onClick={async () => {
+                if (newPassword.length < 6) {
+                  alert("Password must be at least 6 characters");
+                  return;
+                }
+                try {
+                  await onResetPassword(user.id, newPassword);
+                  setNewPassword("");
+                  setShowResetPassword(false);
+                } catch (error) {
+                  alert(
+                    "Failed to reset password: " + (error as Error).message
+                  );
+                }
+              }}
+              className="w-full px-3 py-2 text-sm bg-green-600 hover:bg-green-700 text-white font-medium rounded transition-colors"
+            >
+              Confirm Reset
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

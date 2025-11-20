@@ -10,7 +10,7 @@ export interface HeaderPair {
 export interface TargetSlotState {
   id: string;
   label: string;
-  webhookUrl: string;
+  webhookUrl?: string;
   modelName: string;
   method: "POST" | "PUT" | "PATCH";
   color: string;
@@ -29,7 +29,7 @@ export interface AiLabResult {
   slotIndex: number;
   label: string;
   color?: string | null;
-  webhookUrl: string;
+  webhookUrl?: string;
   modelName?: string | null;
   method: string;
   status: RunStatus;
@@ -70,7 +70,7 @@ export interface SavedModelConfig {
   name: string;
   label: string;
   modelName: string;
-  webhookUrl: string;
+  webhookUrl?: string;
   method: "POST" | "PUT" | "PATCH";
   timeoutMs: number;
   headers: HeaderPair[];

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { performance } from "node:perf_hooks";
 import { prisma } from "@/lib/prisma";
+import { invokeAiProvider } from "@/lib/aiClient";
+import { getOrCreateSettings } from "@/lib/settings";
 import { z } from "zod";
 
 const HeaderRecordSchema = z.record(z.string(), z.string());
@@ -8,7 +10,7 @@ const HeaderRecordSchema = z.record(z.string(), z.string());
 const QuickRunTargetSchema = z
   .object({
     label: z.string().min(1).max(60),
-    webhookUrl: z.string().url(),
+    webhookUrl: z.string().url().optional(),
     modelName: z.string().min(1).max(120),
     method: z.enum(["POST", "PUT", "PATCH"]).optional(),
     color: z.string().optional(),
@@ -181,7 +183,8 @@ async function runWithConcurrency<T>(
 async function executeQuickTarget(
   target: QuickRunTargetInput,
   prompt: string,
-  index: number
+  index: number,
+  settings: Awaited<ReturnType<typeof getOrCreateSettings>>
 ): Promise<{ success: boolean; data?: QuickRunResult; error?: string }> {
   const timeout = target.timeoutMs ?? 45000;
   const controller = new AbortController();
@@ -207,15 +210,35 @@ async function executeQuickTarget(
       ...(target.headers ?? {}),
     };
 
-    const response = await fetch(target.webhookUrl, {
-      method: target.method ?? "POST",
-      headers,
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
+    const aiProviderUrl =
+      settings.aiProviderUrl ?? process.env.AI_PROVIDER_URL ?? undefined;
+    const aiProviderApiKey =
+      settings.aiProviderApiKey ?? process.env.AI_PROVIDER_API_KEY ?? undefined;
+    const targetUrl = aiProviderUrl ?? target.webhookUrl;
+    const usingAiProvider = targetUrl === aiProviderUrl;
 
-    const rawText = await response.text();
-    let parsedResponse: unknown = rawText;
+    if (!targetUrl) {
+      clearTimeout(timer);
+      return {
+        success: false,
+        error: "No target webhook URL or AI provider configured",
+      };
+    }
+
+    const providerResponse = await invokeAiProvider(
+      targetUrl,
+      usingAiProvider ? aiProviderApiKey : undefined,
+      payload,
+      headers,
+      target.method ?? "POST",
+      timeout
+    );
+
+    const rawText =
+      typeof providerResponse.body === "string"
+        ? (providerResponse.body as string)
+        : JSON.stringify(providerResponse.body);
+    let parsedResponse: unknown = providerResponse.body;
     try {
       parsedResponse = JSON.parse(rawText);
     } catch {
@@ -223,7 +246,7 @@ async function executeQuickTarget(
     }
 
     console.log(`[executeQuickTarget] Webhook response for ${target.label}:`);
-    console.log(`[executeQuickTarget] Status: ${response.status}`);
+    console.log(`[executeQuickTarget] Status: ${providerResponse.status}`);
     console.log(`[executeQuickTarget] Raw text length: ${rawText.length}`);
     console.log(
       `[executeQuickTarget] Raw text preview:`,
@@ -265,7 +288,7 @@ async function executeQuickTarget(
 
     clearTimeout(timer);
     return {
-      success: response.ok,
+      success: providerResponse.ok,
       data: {
         label: target.label,
         modelName:
@@ -309,6 +332,8 @@ export async function POST(request: NextRequest) {
     const payload: QuickRunPayloadType = parsed.data;
     console.log("[quick-run] Valid payload parsed successfully");
 
+    const settings = await getOrCreateSettings();
+
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
     });
@@ -327,7 +352,8 @@ export async function POST(request: NextRequest) {
     const results = await runWithConcurrency(
       6, // Max concurrency for quick runs
       payload.targets,
-      (target, index) => executeQuickTarget(target, payload.prompt, index)
+      (target, index) =>
+        executeQuickTarget(target, payload.prompt, index, settings)
     );
 
     const durationMs = Date.now() - startedAt;

@@ -8,17 +8,19 @@ const SettingsPayload = z.object({
   timeoutSeconds: z.coerce.number().int().min(60).max(3600).optional(),
   timeoutEnabled: z.boolean().optional(),
   autoSaveQueries: z.boolean().optional(),
-  webhookUsername: z.string().optional(),
-  webhookPassword: z.string().optional(),
+  webhookUsername: z.string().nullable().optional(),
+  webhookPassword: z.string().nullable().optional(),
   webhookHeaders: z
     .union([z.record(z.string(), z.string()), z.null()])
     .optional(),
   promptHelperWebhookUrl: z.string().trim().or(z.literal("")).optional(),
-  promptHelperUsername: z.string().optional(),
-  promptHelperPassword: z.string().optional(),
+  promptHelperUsername: z.string().nullable().optional(),
+  promptHelperPassword: z.string().nullable().optional(),
   promptHelperHeaders: z
     .union([z.record(z.string(), z.string()), z.null()])
     .optional(),
+  aiProviderUrl: z.string().trim().optional(),
+  aiProviderApiKey: z.string().nullable().optional(),
   userId: z.string(), // Add userId for admin check
 });
 
@@ -69,6 +71,7 @@ export async function PUT(request: NextRequest) {
     const normalizedData: Record<string, unknown> = {};
 
     // Only include fields that were provided
+    console.log("[settings] Received updateData:", updateData);
     if (updateData.webhookUrl !== undefined) {
       normalizedData.webhookUrl = updateData.webhookUrl?.trim() || "";
     }
@@ -107,8 +110,23 @@ export async function PUT(request: NextRequest) {
     if (updateData.promptHelperHeaders !== undefined) {
       normalizedData.promptHelperHeaders = updateData.promptHelperHeaders;
     }
+    if (updateData.aiProviderUrl !== undefined) {
+      normalizedData.aiProviderUrl = updateData.aiProviderUrl?.trim() || "";
+    }
+    if (updateData.aiProviderApiKey !== undefined) {
+      normalizedData.aiProviderApiKey =
+        updateData.aiProviderApiKey?.trim() || null;
+    }
+    if (updateData.aiProviderUrl !== undefined) {
+      normalizedData.aiProviderUrl = updateData.aiProviderUrl?.trim() || "";
+    }
+    if (updateData.aiProviderApiKey !== undefined) {
+      normalizedData.aiProviderApiKey =
+        updateData.aiProviderApiKey?.trim() || null;
+    }
 
     // Update settings
+    console.log("[settings] Normalized data:", normalizedData);
     let settings;
     try {
       const existing = await getOrCreateSettings();
@@ -126,8 +144,9 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(toSerializableSettings(settings));
   } catch (error) {
     console.error("[settings] Failed to update settings", error);
+    const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { error: "Failed to update settings" },
+      { error: `Failed to update settings: ${message}` },
       { status: 500 }
     );
   }
@@ -215,6 +234,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Try to find existing settings, create if not found
+    console.log("[settings] Received createData:", updateData);
+    console.log("[settings] Normalized createData:", normalizedData);
     let settings;
     try {
       settings = await getOrCreateSettings();

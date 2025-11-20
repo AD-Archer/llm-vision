@@ -6,19 +6,25 @@ export async function POST(request: NextRequest) {
     const settings = await getOrCreateSettings();
 
     const webhookUrl = settings.promptHelperWebhookUrl?.trim();
-    if (!webhookUrl) {
+    // Support fallback to a directly-configured AI provider via settings or env
+    const aiProviderUrl =
+      settings.aiProviderUrl ?? process.env.AI_PROVIDER_URL ?? undefined;
+    const aiProviderApiKey =
+      settings.aiProviderApiKey ?? process.env.AI_PROVIDER_API_KEY ?? undefined;
+    const targetUrl = aiProviderUrl ?? webhookUrl;
+    if (!targetUrl) {
       return NextResponse.json(
-        { error: "Prompt helper webhook URL not configured" },
+        { error: "Prompt helper webhook URL or AI provider not configured" },
         { status: 400 }
       );
     }
 
     // Validate URL
     try {
-      new URL(webhookUrl);
+      new URL(targetUrl);
     } catch {
       return NextResponse.json(
-        { error: "Invalid webhook URL configured" },
+        { error: "Invalid webhook / AI provider URL configured" },
         { status: 400 }
       );
     }
@@ -41,10 +47,19 @@ export async function POST(request: NextRequest) {
       headers.Authorization = `Basic ${auth}`;
     }
 
-    // Forward the request to the external webhook
-    const response = await fetch(webhookUrl, {
+    // Build headers for target call
+    const effectiveHeaders = { ...headers } as Record<string, string>;
+    // If AI provider API key is configured in settings, use it; otherwise fall back to env var
+    if (aiProviderApiKey) {
+      effectiveHeaders.Authorization = aiProviderApiKey.startsWith("Bearer ")
+        ? aiProviderApiKey
+        : `Bearer ${aiProviderApiKey}`;
+    }
+
+    // Forward the request to the external webhook or AI provider
+    const response = await fetch(targetUrl, {
       method: "POST",
-      headers,
+      headers: effectiveHeaders,
       body: JSON.stringify(body),
     });
 

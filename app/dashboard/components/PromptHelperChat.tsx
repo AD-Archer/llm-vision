@@ -38,7 +38,8 @@ export function PromptHelperChat({}: PromptHelperChatProps) {
   const [error, setError] = useState<string | null>(null);
 
   const webhookUrl = settings.promptHelperWebhookUrl?.trim();
-  const canSubmit = Boolean(webhookUrl);
+  const aiProviderUrl = settings.aiProviderUrl?.trim();
+  const canSubmit = Boolean(webhookUrl || aiProviderUrl);
 
   const renderedResponse = useMemo(() => {
     if (!response) return null;

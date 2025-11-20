@@ -78,7 +78,8 @@ function DashboardContent() {
 
   const disabled = fetchState === "loading";
   const webhookUrl = settings.webhookUrl?.trim();
-  const canSubmit = Boolean(webhookUrl);
+  const aiProviderUrl = settings.aiProviderUrl?.trim();
+  const canSubmit = Boolean(webhookUrl || aiProviderUrl);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -418,7 +419,8 @@ function DashboardContent() {
 
     if (!canSubmit) {
       updateQueryState({
-        errorMessage: "Provide an n8n webhook URL in settings.",
+        errorMessage:
+          "Provide an AI provider URL or an n8n webhook URL in settings.",
       });
       return;
     }

@@ -31,9 +31,13 @@ export async function POST(request: NextRequest) {
 
   const settings = await getOrCreateSettings();
 
-  if (!settings.webhookUrl) {
+  const targetUrl =
+    (settings.webhookUrl ?? "").trim() || (settings.aiProviderUrl ?? "").trim();
+  const aiProviderKey =
+    settings.aiProviderApiKey ?? process.env.AI_PROVIDER_API_KEY ?? undefined;
+  if (!targetUrl) {
     return NextResponse.json(
-      { error: "Webhook URL has not been configured yet." },
+      { error: "No webhook or AI provider URL has been configured yet." },
       { status: 400 }
     );
   }
@@ -58,8 +62,17 @@ export async function POST(request: NextRequest) {
     if (authHeader) {
       headers.set("Authorization", authHeader);
     }
+    // If AI provider key is configured and we're using the provider URL, set Authorization header
+    if (aiProviderKey && targetUrl === (settings.aiProviderUrl ?? "").trim()) {
+      headers.set(
+        "Authorization",
+        aiProviderKey.startsWith("Bearer ")
+          ? aiProviderKey
+          : `Bearer ${aiProviderKey}`
+      );
+    }
 
-    const response = await fetch(settings.webhookUrl, {
+    const response = await fetch(targetUrl, {
       method: "POST",
       headers,
       body: JSON.stringify(payload),

@@ -1,6 +1,6 @@
 # LLM Visualization Dashboard
 
-This project is a lightweight dashboard that talks to an n8n RAG workflow via webhook, receives a JSON payload with insight data, and renders the best-fit visualization using [Recharts](https://recharts.org). You can let the AI decide which chart to use or override the visualization type manually.
+This project is a lightweight dashboard that talks to an n8n RAG workflow via webhook or can call a configured AI provider directly, receives a JSON payload with insight data, and renders the best-fit visualization using [Recharts](https://recharts.org). You can let the AI decide which chart to use or override the visualization type manually.
 
 ## Prerequisites
 
@@ -63,7 +63,7 @@ This project is a lightweight dashboard that talks to an n8n RAG workflow via we
    - Note the webhook URL from the "Webhook" node (it should end with `/webhook/llm-visi-dash`)
 
 4. **Update the dashboard Settings:**
-   Launch the app, head to **Settings → API Configuration**, and paste your webhook URL (plus optional credentials). The values are stored in Postgres so they survive deployments without living in `.env`.
+   Launch the app, head to **Settings → API Configuration**, and paste your webhook URL (plus optional credentials) if using an n8n workflow. If you'd like the app to call a provider directly, set `AI_PROVIDER_URL` and `AI_PROVIDER_API_KEY` via the Settings or environment variables (see `.env.example`). The values are stored in Postgres so they survive deployments without living in `.env`.
 
 ## Quick start
 

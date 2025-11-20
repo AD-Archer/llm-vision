@@ -9,14 +9,16 @@ import React, {
 } from "react";
 
 export interface AppSettings {
-  webhookUrl: string;
+  webhookUrl?: string;
+  aiProviderUrl?: string;
+  aiProviderApiKey?: string;
   timeoutSeconds: number;
   timeoutEnabled: boolean;
   autoSaveQueries: boolean;
   webhookUsername?: string;
   webhookPassword?: string;
   webhookHeaders?: Record<string, string> | null;
-  promptHelperWebhookUrl: string;
+  promptHelperWebhookUrl?: string;
   promptHelperUsername?: string;
   promptHelperPassword?: string;
   promptHelperHeaders?: Record<string, string> | null;
@@ -33,6 +35,8 @@ export interface SettingsContextType {
 
 const DEFAULT_SETTINGS: AppSettings = {
   webhookUrl: "",
+  aiProviderUrl: undefined,
+  aiProviderApiKey: undefined,
   timeoutSeconds: 1800, // 30 minutes - consolidated timeout
   timeoutEnabled: false, // disabled by default
   autoSaveQueries: true,

@@ -112,18 +112,7 @@ export function TargetSlotCard({
             className="px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-slate-300 lg:col-span-2">
-          Webhook URL
-          <input
-            type="url"
-            value={slot.webhookUrl}
-            placeholder="https://..."
-            onChange={(event) =>
-              onChange(slot.id, { webhookUrl: event.target.value })
-            }
-            className="px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </label>
+        {/* Webhook URL was deprecated; use global AI Provider URL configured in Settings */}
         <label className="flex flex-col gap-1 text-sm text-slate-300">
           HTTP method
           <select
@@ -221,7 +210,8 @@ export function TargetSlotCard({
           </div>
           {slot.headers.length === 0 && (
             <p className="text-xs text-slate-500">
-              Add Authorization or routing headers required by this webhook.
+              Add Authorization or extra headers to include with the provider
+              request, if your provider supports custom headers.
             </p>
           )}
           <div className="space-y-2">

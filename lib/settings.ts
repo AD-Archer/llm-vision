@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 export type SerializableSettings = {
   id: string;
   webhookUrl: string;
+  aiProviderUrl?: string;
+  aiProviderApiKey?: string;
   timeoutSeconds: number;
   timeoutEnabled: boolean;
   autoSaveQueries: boolean;
@@ -40,6 +42,8 @@ export async function getOrCreateSettings(): Promise<AppSetting> {
     const fallback: AppSetting = {
       id: "fallback",
       webhookUrl: process.env.N8N_WEBHOOK_URL ?? "",
+      aiProviderUrl: process.env.AI_PROVIDER_URL ?? undefined,
+      aiProviderApiKey: process.env.AI_PROVIDER_API_KEY ?? undefined,
       webhookUsername: process.env.N8N_WEBHOOK_USERNAME ?? null,
       webhookPassword: process.env.N8N_WEBHOOK_PASSWORD ?? null,
       webhookHeaders: null,
@@ -71,6 +75,8 @@ export function toSerializableSettings(
   return {
     id: s.id,
     webhookUrl: s.webhookUrl,
+    aiProviderUrl: s.aiProviderUrl ?? undefined,
+    aiProviderApiKey: s.aiProviderApiKey ?? undefined,
     timeoutSeconds: s.timeoutSeconds,
     timeoutEnabled: s.timeoutEnabled ?? false,
     autoSaveQueries: s.autoSaveQueries,
