@@ -41,7 +41,7 @@ const extractJsonPayload = (raw: string) => {
 
 type FetchState = "idle" | "loading" | "success" | "error";
 
-const AVERAGE_QUERY_DURATION_SECONDS = 7 * 60;
+const AVERAGE_QUERY_DURATION_SECONDS = 1 * 60;
 
 export interface QueryState {
   question: string;

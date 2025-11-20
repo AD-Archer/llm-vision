@@ -58,7 +58,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   webhookUrl: "",
   aiProviderUrl: undefined,
   aiProviderApiKey: undefined,
-  timeoutSeconds: 1800, // 30 minutes - consolidated timeout
+  timeoutSeconds: 180, // 3 minutes - consolidated timeout
   timeoutEnabled: false, // disabled by default
   autoSaveQueries: true,
   webhookUsername: "",

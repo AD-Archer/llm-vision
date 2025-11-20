@@ -17,7 +17,7 @@ model AppSetting {
   promptHelperUsername     String?
   promptHelperPassword     String?
   promptHelperHeaders      Json?    // Optional headers as key-value pairs
-  timeoutSeconds           Int      @default(1800) // 30 minutes - consolidated timeout
+  timeoutSeconds           Int      @default(180) // 3 minutes - consolidated timeout
   timeoutEnabled           Boolean  @default(false) // disabled by default
   autoSaveQueries          Boolean  @default(true)
   aiProviderUrl            String?  @default("")

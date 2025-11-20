@@ -75,7 +75,7 @@ export async function getOrCreateSettings(): Promise<AppSetting> {
       timeoutSeconds: Number(
         process.env.N8N_WEBHOOK_TIMEOUT_MS ??
           process.env.NEXT_PUBLIC_WEBHOOK_TIMEOUT_MS ??
-          60
+          180
       ),
       timeoutEnabled: false,
       autoSaveQueries: true,
