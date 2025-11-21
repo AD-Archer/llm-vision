@@ -29,24 +29,13 @@ const logCurlCommand = (
   if (body) {
     try {
       curl += ` \\\n  -d '${JSON.stringify(body, null, 2)}'`;
-    } catch (e) {
+    } catch {
       curl += ` \\\n  -d '[Unserializable Body]'`;
     }
   }
 
   console.log(curl);
   console.log("------------------------------\n");
-};
-
-const formatAuthHeader = (
-  username?: string | null,
-  password?: string | null
-) => {
-  if (!username || !password) {
-    return null;
-  }
-  const credentials = Buffer.from(`${username}:${password}`).toString("base64");
-  return `Basic ${credentials}`;
 };
 
 export async function POST(request: NextRequest) {
@@ -173,7 +162,7 @@ export async function POST(request: NextRequest) {
           ) {
             contentToStructure = jsonResponse.choices[0].message.content;
           }
-        } catch (e) {
+        } catch {
           // If parsing fails, use raw body
         }
 
@@ -247,7 +236,7 @@ Please ensure all keys appear exactly as above. If any fields are missing, infer
               // Add debug info to the inner content
               innerContent._debug_step1_response = rawBody;
               finalResponseBody = JSON.stringify(innerContent);
-            } catch (parseError) {
+            } catch {
               // If inner content isn't valid JSON, just return the outer structure but add debug
               jsonResponse._debug_step1_response = rawBody;
               finalResponseBody = JSON.stringify(jsonResponse);

@@ -6,17 +6,6 @@ export const runtime = "nodejs";
 const MIN_TIMEOUT_SECONDS = 5;
 const MAX_TIMEOUT_SECONDS = 600;
 
-const formatAuthHeader = (
-  username?: string | null,
-  password?: string | null
-) => {
-  if (!username || !password) {
-    return null;
-  }
-  const credentials = Buffer.from(`${username}:${password}`).toString("base64");
-  return `Basic ${credentials}`;
-};
-
 export async function POST(request: NextRequest) {
   let payload: unknown;
 
