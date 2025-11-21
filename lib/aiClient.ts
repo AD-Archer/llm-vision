@@ -28,9 +28,8 @@ export async function invokeAiProvider(
 
     if (apiKey) {
       // Support both 'Bearer <token>' strings or raw tokens
-      defaultHeaders["Authorization"] = apiKey.startsWith("Bearer ")
-        ? apiKey
-        : `Bearer ${apiKey}`;
+      const cleanKey = apiKey.replace(/^Bearer\s+/i, "").trim();
+      defaultHeaders["Authorization"] = `Bearer ${cleanKey}`;
     }
 
     const response = await fetch(providerUrl, {

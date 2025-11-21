@@ -31,16 +31,14 @@ export async function POST(request: NextRequest) {
 
   const settings = await getOrCreateSettings();
 
-  // Prefer a dedicated prompt helper webhook if configured, then general webhook, then AI provider URL
-  const targetUrl =
-    (settings.promptHelperWebhookUrl ?? "").trim() ||
-    (settings.webhookUrl ?? "").trim() ||
-    (settings.aiProviderUrl ?? "").trim();
+  // Only use AI Provider URL
+  const targetUrl = (settings.aiProviderUrl ?? "").trim();
   const aiProviderKey =
     settings.aiProviderApiKey ?? process.env.AI_PROVIDER_API_KEY ?? undefined;
+
   if (!targetUrl) {
     return NextResponse.json(
-      { error: "No webhook or AI provider URL has been configured yet." },
+      { error: "AI provider URL has not been configured." },
       { status: 400 }
     );
   }
@@ -58,30 +56,36 @@ export async function POST(request: NextRequest) {
 
   try {
     const headers = new Headers({ "Content-Type": "application/json" });
-    // Use prompt helper credentials if present; otherwise fall back to webhook credentials
-    const authHeader = formatAuthHeader(
-      settings.promptHelperUsername ?? settings.webhookUsername,
-      settings.promptHelperPassword ?? settings.webhookPassword
-    );
-    if (authHeader) {
-      headers.set("Authorization", authHeader);
-    }
-    // If AI provider key is configured and we're using the provider URL, set Authorization header
-    if (aiProviderKey && targetUrl === (settings.aiProviderUrl ?? "").trim()) {
-      headers.set(
-        "Authorization",
-        aiProviderKey.startsWith("Bearer ")
-          ? aiProviderKey
-          : `Bearer ${aiProviderKey}`
-      );
+
+    // Set Authorization header for AI provider
+    if (aiProviderKey) {
+      const cleanKey = aiProviderKey.replace(/^Bearer\s+/i, "").trim();
+      headers.set("Authorization", `Bearer ${cleanKey}`);
     }
 
-    // Modify payload to include system prompt for prompt helper (configurable via settings)
+    // Construct payload for AI provider (OpenAI Chat Completions format)
+    const inputPayload = payload as Record<string, unknown>;
+    const userMessage = (inputPayload.question ||
+      inputPayload.chatInput ||
+      "") as string;
+
     const defaultHelperSystem =
       "You are a PROMPT HELPER ONLY. You do NOT analyze data, generate charts, create visualizations, or return JSON. Your ONLY job is to help users improve their data analysis prompts by suggesting better wording, adding clarity, and making them more specific. Respond with plain text or markdown-formatted suggestions. Do not include any code, SQL queries, or data in your response. Focus solely on rephrasing and improving the user's question.";
+
+    const messages = [
+      {
+        role: "system",
+        content: settings.aiHelperSystemPrompt?.trim() || defaultHelperSystem,
+      },
+      {
+        role: "user",
+        content: userMessage,
+      },
+    ];
+
     const modifiedPayload = {
-      ...(payload as Record<string, unknown>),
-      system: settings.aiHelperSystemPrompt?.trim() || defaultHelperSystem,
+      messages,
+      temperature: 0.7, // Default temperature for helper
     };
 
     const response = await fetch(targetUrl, {
@@ -112,12 +116,25 @@ export async function POST(request: NextRequest) {
 
       return proxyResponse;
     } else {
-      // For regular responses, return the text
+      // For regular responses, parse the JSON and extract the content
       const responseText = await response.text();
-      return new NextResponse(responseText, {
+      let finalContent = responseText;
+
+      try {
+        const jsonResponse = JSON.parse(responseText);
+        // Check for OpenAI format
+        if (jsonResponse.choices && jsonResponse.choices[0]?.message?.content) {
+          finalContent = jsonResponse.choices[0].message.content;
+        }
+      } catch (e) {
+        // If parsing fails, return the original text
+        console.warn("Failed to parse AI response as JSON:", e);
+      }
+
+      return new NextResponse(finalContent, {
         status: response.status,
         headers: {
-          "Content-Type": contentType || "application/json",
+          "Content-Type": "text/plain; charset=utf-8",
         },
       });
     }
