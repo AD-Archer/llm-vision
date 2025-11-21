@@ -41,15 +41,42 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
   // Initialize auth state from localStorage
   useEffect(() => {
-    const storedUser = localStorage.getItem("llm-visi-user");
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (e) {
-        console.error("Failed to parse stored user", e);
+    const initAuth = async () => {
+      const storedUser = localStorage.getItem("llm-visi-user");
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+
+          // Refresh user data from server to get latest admin status
+          try {
+            const res = await fetch("/api/auth/refresh", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ userId: parsedUser.id }),
+            });
+
+            if (res.ok) {
+              const data = await res.json();
+              if (data.user) {
+                setUser(data.user);
+                localStorage.setItem(
+                  "llm-visi-user",
+                  JSON.stringify(data.user)
+                );
+              }
+            }
+          } catch (err) {
+            console.error("Failed to refresh user data", err);
+          }
+        } catch (e) {
+          console.error("Failed to parse stored user", e);
+        }
       }
-    }
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+
+    initAuth();
   }, []);
 
   const register = async (
