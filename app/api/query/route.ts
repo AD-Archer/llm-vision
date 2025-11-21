@@ -93,12 +93,12 @@ export async function POST(request: NextRequest) {
     const messages = [];
 
     // Add system prompt if configured
-    if (settings.aiSystemPrompt) {
-      messages.push({
-        role: "system",
-        content: settings.aiSystemPrompt,
-      });
-    }
+    // if (settings.aiSystemPrompt) {
+    //   messages.push({
+    //     role: "system",
+    //     content: settings.aiSystemPrompt,
+    //   });
+    // }
 
     // Add user message
     messages.push({
@@ -166,27 +166,27 @@ export async function POST(request: NextRequest) {
           // If parsing fails, use raw body
         }
 
-        const defaultStructuringPrompt = `You are a Data Visualization Expert and JSON formatter. You will receive a raw text response from another AI assistant. Your task is to analyze this text, extract the key data points, and structure them into a JSON format suitable for frontend visualization. You must determine the best way to visualize this data (e.g., bar chart, line chart, etc.) and populate the JSON accordingly.
+        // const defaultStructuringPrompt = `You are a Data Visualization Expert and JSON formatter. You will receive a raw text response from another AI assistant. Your task is to analyze this text, extract the key data points, and structure them into a JSON format suitable for frontend visualization. You must determine the best way to visualize this data (e.g., bar chart, line chart, etc.) and populate the JSON accordingly.
 
-Convert the input into the following strict JSON schema without additional commentary or explanation:
-{
-  "insight": string, // A brief summary or insight derived from the data
-  "chart": {
-    "type": "auto" | "bar" | "line" | "area" | "pie" | "scatter",
-    "xKey": string, // The key in the data objects to use for the X-axis (categories/time)
-    "yKeys": string[], // The keys in the data objects to use for the Y-axis (values)
-    "meta": { "title"?: string, "description"?: string, "visualizationName"?: string },
-    "data": Array<Record<string, string | number | boolean | null>> // The actual data points extracted from the text
-  },
-  "data"?: Array<Record<string, string | number | boolean | null>> // Optional: raw tabular data if different from chart data
-}
-Please ensure all keys appear exactly as above. If any fields are missing, infer sensible defaults and keep arrays of at least three rows where possible.`;
+        // Convert the input into the following strict JSON schema without additional commentary or explanation:
+        // {
+        //   "insight": string, // A brief summary or insight derived from the data
+        //   "chart": {
+        //     "type": "auto" | "bar" | "line" | "area" | "pie" | "scatter",
+        //     "xKey": string, // The key in the data objects to use for the X-axis (categories/time)
+        //     "yKeys": string[], // The keys in the data objects to use for the Y-axis (values)
+        //     "meta": { "title"?: string, "description"?: string, "visualizationName"?: string },
+        //     "data": Array<Record<string, string | number | boolean | null>> // The actual data points extracted from the text
+        //   },
+        //   "data"?: Array<Record<string, string | number | boolean | null>> // Optional: raw tabular data if different from chart data
+        // }
+        // Please ensure all keys appear exactly as above. If any fields are missing, infer sensible defaults and keep arrays of at least three rows where possible.`;
 
         const step2Messages = [
-          {
-            role: "system",
-            content: defaultStructuringPrompt,
-          },
+          // {
+          //   role: "system",
+          //   content: defaultStructuringPrompt,
+          // },
           {
             role: "user",
             content: `Here is the raw text to structure:\n\n${contentToStructure}`,
