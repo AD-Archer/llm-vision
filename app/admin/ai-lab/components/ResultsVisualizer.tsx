@@ -47,8 +47,8 @@ export function ResultsVisualizer({ experiment }: ResultsVisualizerProps) {
     name: result.label,
     latency: result.latencyMs ?? 0,
     accuracy:
-      typeof result.accuracyScore === "number"
-        ? Number((result.accuracyScore * 100).toFixed(1))
+      typeof result.reviewScore === "number"
+        ? Number(((result.reviewScore / 5) * 100).toFixed(1))
         : null,
     color: result.color ?? FALLBACK_COLORS[index % FALLBACK_COLORS.length],
   }));
@@ -69,17 +69,33 @@ export function ResultsVisualizer({ experiment }: ResultsVisualizerProps) {
           </div>
           <div className="h-60">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <BarChart
+                data={chartData}
+                margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="name" stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 12 }} />
-                <YAxis stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 12 }} />
+                <XAxis
+                  dataKey="name"
+                  stroke="#94a3b8"
+                  tick={{ fill: "#94a3b8", fontSize: 12 }}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  tick={{ fill: "#94a3b8", fontSize: 12 }}
+                />
                 <Tooltip
-                  contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #1e293b" }}
+                  contentStyle={{
+                    backgroundColor: "#0f172a",
+                    border: "1px solid #1e293b",
+                  }}
                   labelStyle={{ color: "#e2e8f0" }}
                 />
                 <Bar dataKey="latency" radius={[6, 6, 0, 0]}>
                   {chartData.map((entry, index) => (
-                    <Cell key={`latency-${entry.name}-${index}`} fill={entry.color} />
+                    <Cell
+                      key={`latency-${entry.name}-${index}`}
+                      fill={entry.color}
+                    />
                   ))}
                 </Bar>
               </BarChart>
@@ -100,18 +116,35 @@ export function ResultsVisualizer({ experiment }: ResultsVisualizerProps) {
           </div>
           <div className="h-60">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <BarChart
+                data={chartData}
+                margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="name" stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 12 }} />
-                <YAxis stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 12 }} domain={[0, 100]} />
+                <XAxis
+                  dataKey="name"
+                  stroke="#94a3b8"
+                  tick={{ fill: "#94a3b8", fontSize: 12 }}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  tick={{ fill: "#94a3b8", fontSize: 12 }}
+                  domain={[0, 100]}
+                />
                 <Tooltip
                   formatter={(value) => [`${value}%`, "Accuracy"]}
-                  contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #1e293b" }}
+                  contentStyle={{
+                    backgroundColor: "#0f172a",
+                    border: "1px solid #1e293b",
+                  }}
                   labelStyle={{ color: "#e2e8f0" }}
                 />
                 <Bar dataKey="accuracy" radius={[6, 6, 0, 0]}>
                   {chartData.map((entry, index) => (
-                    <Cell key={`accuracy-${entry.name}-${index}`} fill={entry.color} />
+                    <Cell
+                      key={`accuracy-${entry.name}-${index}`}
+                      fill={entry.color}
+                    />
                   ))}
                 </Bar>
               </BarChart>
@@ -147,7 +180,9 @@ export function ResultsVisualizer({ experiment }: ResultsVisualizerProps) {
             <div className="grid grid-cols-2 gap-3 text-sm text-slate-200">
               <div>
                 <p className="text-xs text-slate-500">Latency</p>
-                <p className="font-semibold">{formatLatency(result.latencyMs)}</p>
+                <p className="font-semibold">
+                  {formatLatency(result.latencyMs)}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-slate-500">Tokens</p>
@@ -172,15 +207,19 @@ export function ResultsVisualizer({ experiment }: ResultsVisualizerProps) {
               <div>
                 <p className="text-xs text-slate-500">Cost</p>
                 <p className="font-semibold">
-                  {result.costEstimate !== null && result.costEstimate !== undefined
+                  {result.costEstimate !== null &&
+                  result.costEstimate !== undefined
                     ? `$${result.costEstimate.toFixed(4)}`
                     : "--"}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-slate-500">Tokens (prompt / completion)</p>
+                <p className="text-xs text-slate-500">
+                  Tokens (prompt / completion)
+                </p>
                 <p className="font-semibold">
-                  {result.promptTokens ?? "--"} / {result.completionTokens ?? "--"}
+                  {result.promptTokens ?? "--"} /{" "}
+                  {result.completionTokens ?? "--"}
                 </p>
               </div>
             </div>

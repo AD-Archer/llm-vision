@@ -26,9 +26,19 @@ export function ModelManager({
   const [savedModels, setSavedModels] = useState<SavedModelConfig[]>([]);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [selectedSlotId, setSelectedSlotId] = useState<string>("");
+  const [saveName, setSaveName] = useState("");
   const [selectedModelIds, setSelectedModelIds] = useState<Set<string>>(
     new Set()
   );
+
+  useEffect(() => {
+    const slot = slots.find((s) => s.id === selectedSlotId);
+    if (slot) {
+      setSaveName(slot.label);
+    } else {
+      setSaveName("");
+    }
+  }, [selectedSlotId, slots]);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -45,22 +55,26 @@ export function ModelManager({
                 typeof model.label === "string" &&
                 model.label.trim() !== "" &&
                 typeof model.modelName === "string" &&
-                model.modelName.trim() !== "" &&
-                typeof model.webhookUrl === "string" &&
-                model.webhookUrl.trim() !== ""
+                model.modelName.trim() !== ""
             )
             .map((model) => ({
               id: model.id || crypto.randomUUID(),
               name: model.name || model.label,
               label: model.label,
               modelName: model.modelName,
-              webhookUrl: model.webhookUrl,
-              method: model.method || "POST",
+              systemPrompt: model.systemPrompt || "",
+              temperature: model.temperature ?? 0.7,
+              topP: model.topP ?? 1.0,
+              topK: model.topK ?? 50,
+              maxTokens: model.maxTokens ?? 1024,
+              frequencyPenalty: model.frequencyPenalty ?? 0,
+              presencePenalty: model.presencePenalty ?? 0,
+              providerUrl: model.providerUrl,
+              apiKey: model.apiKey,
               timeoutMs: model.timeoutMs || 45000,
-              headers: model.headers || [],
               inputTokensPerMillion: model.inputTokensPerMillion,
               outputTokensPerMillion: model.outputTokensPerMillion,
-              payloadTemplateRaw: model.payloadTemplateRaw || "",
+              requestCount: model.requestCount || 1,
               createdAt: model.createdAt || new Date().toISOString(),
               updatedAt: model.updatedAt || new Date().toISOString(),
             }));
@@ -81,29 +95,28 @@ export function ModelManager({
   };
 
   const handleSaveModel = () => {
-    if (!selectedSlotId) return;
+    if (!selectedSlotId || !saveName.trim()) return;
 
     const slot = slots.find((s) => s.id === selectedSlotId);
-    if (
-      !slot ||
-      !slot.label.trim() ||
-      !slot.modelName.trim() ||
-      !slot.webhookUrl.trim()
-    )
-      return;
+    if (!slot || !slot.modelName.trim()) return;
 
     const config: SavedModelConfig = {
       id: crypto.randomUUID(),
-      name: slot.label.trim(),
-      label: slot.label.trim(),
+      name: saveName.trim(),
+      label: saveName.trim(),
       modelName: slot.modelName,
-      webhookUrl: slot.webhookUrl,
-      method: slot.method,
+      systemPrompt: slot.systemPrompt,
+      temperature: slot.temperature,
+      topP: slot.topP,
+      topK: slot.topK,
+      maxTokens: slot.maxTokens,
+      frequencyPenalty: slot.frequencyPenalty || 0,
+      presencePenalty: slot.presencePenalty || 0,
+      providerUrl: slot.providerUrl,
+      apiKey: slot.apiKey,
       timeoutMs: slot.timeoutMs,
-      headers: slot.headers,
       inputTokensPerMillion: slot.inputTokensPerMillion,
       outputTokensPerMillion: slot.outputTokensPerMillion,
-      payloadTemplateRaw: slot.payloadTemplateRaw,
       requestCount: slot.requestCount || 1,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -120,13 +133,18 @@ export function ModelManager({
       name: config.name || config.label,
       label: config.label,
       modelName: config.modelName,
-      webhookUrl: config.webhookUrl,
-      method: config.method || "POST",
+      systemPrompt: config.systemPrompt,
+      temperature: config.temperature,
+      topP: config.topP,
+      topK: config.topK,
+      maxTokens: config.maxTokens,
+      frequencyPenalty: config.frequencyPenalty || 0,
+      presencePenalty: config.presencePenalty || 0,
+      providerUrl: config.providerUrl,
+      apiKey: config.apiKey,
       timeoutMs: config.timeoutMs || 45000,
-      headers: config.headers || [],
       inputTokensPerMillion: config.inputTokensPerMillion,
       outputTokensPerMillion: config.outputTokensPerMillion,
-      payloadTemplateRaw: config.payloadTemplateRaw || "",
       requestCount: config.requestCount || 1,
     });
   };
@@ -171,9 +189,7 @@ export function ModelManager({
     onQuickRun?.(selectedModels);
   };
 
-  const availableSlots = slots.filter(
-    (slot) => slot.modelName.trim() && slot.webhookUrl.trim()
-  );
+  const availableSlots = slots.filter((slot) => slot.modelName.trim());
 
   return (
     <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-4 sm:p-6 shadow-xl">
@@ -269,7 +285,7 @@ export function ModelManager({
                       {model.modelName}
                     </p>
                     <p className="text-xs text-slate-500 mt-1 truncate">
-                      {model.webhookUrl}
+                      {model.providerUrl || "Default Provider"}
                     </p>
                     <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
                       <span>Input: ${model.inputTokensPerMillion || 0}/M</span>
@@ -354,6 +370,18 @@ export function ModelManager({
                   ))}
                 </select>
               </label>
+
+              <label className="block">
+                <span className="text-sm text-slate-300">Save as</span>
+                <input
+                  type="text"
+                  value={saveName}
+                  onChange={(e) => setSaveName(e.target.value)}
+                  className="mt-1 w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter a name for this configuration"
+                  disabled={!selectedSlotId}
+                />
+              </label>
             </div>
             <div className="flex gap-3 mt-6">
               <button
@@ -364,7 +392,7 @@ export function ModelManager({
               </button>
               <button
                 onClick={handleSaveModel}
-                disabled={!selectedSlotId}
+                disabled={!selectedSlotId || !saveName.trim()}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
                 Save

@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { performance } from "node:perf_hooks";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { Prisma } from "@prisma/client";
+import { Prisma, AppSetting } from "@prisma/client";
+import { invokeAiProvider } from "@/lib/aiClient";
+import { getOrCreateSettings } from "@/lib/settings";
 
 enum AiExperimentStatus {
   PENDING = "PENDING",
@@ -18,19 +20,26 @@ enum AiRunStatus {
   FAILED = "FAILED",
 }
 
-const HeaderRecordSchema = z.record(z.string(), z.string());
-
 const TargetSchema = z
   .object({
     label: z.string().min(1).max(60),
-    webhookUrl: z.string().url(),
-    modelName: z.string().min(1).max(120),
-    method: z.enum(["POST", "PUT", "PATCH"]).optional(),
+    modelName: z.string().max(120).optional(),
     color: z.string().optional(),
-    headers: HeaderRecordSchema.optional(),
     timeoutMs: z.number().int().min(1000).max(120000).optional(),
-    payloadTemplate: z.record(z.string(), z.any()).optional(),
-    costPer1kTokens: z.number().nonnegative().optional(),
+
+    // Tuning params
+    systemPrompt: z.string().optional(),
+    temperature: z.number().optional(),
+    topP: z.number().optional(),
+    topK: z.number().optional(),
+    maxTokens: z.number().optional(),
+    frequencyPenalty: z.number().optional(),
+    presencePenalty: z.number().optional(),
+
+    // Overrides
+    providerUrl: z.string().optional(),
+    apiKey: z.string().optional(),
+
     inputTokensPerMillion: z.number().nonnegative().optional(),
     outputTokensPerMillion: z.number().nonnegative().optional(),
   })
@@ -77,32 +86,16 @@ type RunOutcome = {
   status: AiRunStatus;
 };
 
-function maskSensitiveHeaders(headers?: Record<string, string>) {
-  if (!headers) return undefined;
-  const sensitiveKeywords = [
-    "authorization",
-    "api",
-    "token",
-    "secret",
-    "password",
-    "key",
-  ];
-  return Object.fromEntries(
-    Object.entries(headers).map(([key, value]) => {
-      const lowerKey = key.toLowerCase();
-      const isSensitive = sensitiveKeywords.some((keyword) =>
-        lowerKey.includes(keyword)
-      );
-      return [key, isSensitive ? "••••" : value];
-    })
-  );
+function maskSensitiveData(target: TargetInput) {
+  const masked = { ...target };
+  if (masked.apiKey) {
+    masked.apiKey = "••••";
+  }
+  return masked;
 }
 
 function serializeTargetsForStorage(targets: TargetInput[]) {
-  return targets.map((target) => ({
-    ...target,
-    headers: maskSensitiveHeaders(target.headers),
-  }));
+  return targets.map(maskSensitiveData);
 }
 
 async function runWithConcurrency<T>(
@@ -225,6 +218,21 @@ function extractAnswer(payload: unknown, fallback: string) {
     return payload;
   }
   if (typeof payload === "object") {
+    // OpenAI format
+    const choices = (payload as Record<string, unknown>).choices;
+    if (choices && Array.isArray(choices) && choices.length > 0) {
+      const firstChoice = choices[0];
+      if (firstChoice && typeof firstChoice === "object") {
+        const message = (firstChoice as Record<string, unknown>).message;
+        if (message && typeof message === "object") {
+          const content = (message as Record<string, unknown>).content;
+          if (typeof content === "string") return content;
+        }
+        const text = (firstChoice as Record<string, unknown>).text;
+        if (typeof text === "string") return text;
+      }
+    }
+
     const candidate =
       (payload as Record<string, unknown>).answer ??
       (payload as Record<string, unknown>).output ??
@@ -242,11 +250,26 @@ function extractAnswer(payload: unknown, fallback: string) {
 async function executeTarget(
   resultId: string,
   target: TargetInput,
-  params: { prompt: string; expectedAnswer?: string; experimentId: string }
+  params: { prompt: string; expectedAnswer?: string; experimentId: string },
+  globalSettings: AppSetting
 ): Promise<RunOutcome> {
   const timeout = target.timeoutMs ?? 45000;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeout);
+
+  // Determine provider URL and Key
+  const providerUrl = target.providerUrl || globalSettings.aiProviderUrl;
+  const apiKey = target.apiKey || globalSettings.aiProviderApiKey || undefined;
+
+  if (!providerUrl) {
+    await prisma.aiExperimentResult.update({
+      where: { id: resultId },
+      data: {
+        status: AiRunStatus.FAILED,
+        errorMessage: "No AI Provider URL configured",
+        completedAt: new Date(),
+      },
+    });
+    return { resultId, status: AiRunStatus.FAILED };
+  }
 
   try {
     const startTs = performance.now();
@@ -255,45 +278,69 @@ async function executeTarget(
       data: { status: AiRunStatus.RUNNING, startedAt: new Date() },
     });
 
-    const payload = {
-      ...(target.payloadTemplate ?? {}),
-      prompt: params.prompt,
-      chatInput: params.prompt, // Include chatInput for compatibility
-      experimentId: params.experimentId,
-      slotLabel: target.label,
-      model: target.modelName,
-      expectedAnswer: params.expectedAnswer,
-      chatId: params.experimentId, // Use experimentId as chatId
-      sessionId: `session-${params.experimentId}-${target.label}`, // Generate sessionId
-      issuedAt: new Date().toISOString(),
-    };
-
-    const headers = {
-      "Content-Type": "application/json",
-      ...(target.headers ?? {}),
-    };
-
-    const response = await fetch(target.webhookUrl, {
-      method: target.method ?? "POST",
-      headers,
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-
-    const rawText = await response.text();
-    let parsedResponse: unknown = rawText;
-    try {
-      parsedResponse = JSON.parse(rawText);
-    } catch {
-      parsedResponse = rawText;
+    // Construct OpenAI-compatible payload
+    const messages = [];
+    if (target.systemPrompt) {
+      messages.push({ role: "system", content: target.systemPrompt });
     }
+    messages.push({ role: "user", content: params.prompt });
+
+    const payload = {
+      model: target.modelName,
+      messages,
+      temperature: target.temperature ?? 0.7,
+      top_p: target.topP ?? 1.0,
+      max_tokens: target.maxTokens ?? 1024,
+      ...(target.topK ? { top_k: target.topK } : {}),
+      ...(target.frequencyPenalty
+        ? { frequency_penalty: target.frequencyPenalty }
+        : {}),
+      ...(target.presencePenalty
+        ? { presence_penalty: target.presencePenalty }
+        : {}),
+    };
+
+    const result = await invokeAiProvider(
+      providerUrl,
+      apiKey,
+      payload,
+      {}, // headers
+      "POST",
+      timeout
+    );
 
     const latencyMs = Math.round(performance.now() - startTs);
+
+    let parsedResponse: unknown = result.body;
+    if (typeof parsedResponse === "string") {
+      try {
+        parsedResponse = JSON.parse(parsedResponse);
+      } catch {}
+    }
+
+    if (!result.ok) {
+      await prisma.aiExperimentResult.update({
+        where: { id: resultId },
+        data: {
+          status: AiRunStatus.FAILED,
+          errorMessage: `Provider returned ${result.status}: ${
+            result.statusText || "Unknown error"
+          }`,
+          completedAt: new Date(),
+          latencyMs,
+          responsePayload: (typeof parsedResponse === "string"
+            ? { raw: parsedResponse }
+            : parsedResponse) as Prisma.InputJsonValue,
+        },
+      });
+      return { resultId, status: AiRunStatus.FAILED };
+    }
+
     const { promptTokens, completionTokens, totalTokens } =
       extractTokenCounts(parsedResponse);
     const accuracyScore = calculateAccuracy(
       params.expectedAnswer,
-      extractAnswer(parsedResponse, rawText)
+      extractAnswer(parsedResponse, JSON.stringify(parsedResponse))
     );
     const speedScore = Number(Math.max(0, 1 - latencyMs / timeout).toFixed(2));
     const inputCost =
@@ -312,7 +359,7 @@ async function executeTarget(
     await prisma.aiExperimentResult.update({
       where: { id: resultId },
       data: {
-        status: response.ok ? AiRunStatus.COMPLETED : AiRunStatus.FAILED,
+        status: AiRunStatus.COMPLETED,
         latencyMs,
         completionTokens,
         promptTokens,
@@ -321,9 +368,7 @@ async function executeTarget(
         speedScore,
         costEstimate,
         completedAt: new Date(),
-        errorMessage: response.ok
-          ? null
-          : `HTTP ${response.status}: ${response.statusText}`,
+        errorMessage: null,
         responsePayload: (typeof parsedResponse === "string"
           ? { raw: parsedResponse }
           : parsedResponse) as Prisma.InputJsonValue,
@@ -331,13 +376,11 @@ async function executeTarget(
       },
     });
 
-    clearTimeout(timer);
     return {
       resultId,
-      status: response.ok ? AiRunStatus.COMPLETED : AiRunStatus.FAILED,
+      status: AiRunStatus.COMPLETED,
     };
   } catch (error) {
-    clearTimeout(timer);
     await prisma.aiExperimentResult.update({
       where: { id: resultId },
       data: {
@@ -430,6 +473,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
+    const settings = await getOrCreateSettings();
+
     const startedAt = Date.now();
 
     const experiment = await prisma.aiExperiment.create({
@@ -456,9 +501,9 @@ export async function POST(request: NextRequest) {
             slotIndex: index,
             label: target.label,
             color: target.color,
-            webhookUrl: target.webhookUrl,
+            webhookUrl: "", // No longer used, but required by schema? Let's check schema.
             modelName: target.modelName,
-            method: target.method ?? "POST",
+            method: "POST", // Default
           },
         })
       )
@@ -468,11 +513,16 @@ export async function POST(request: NextRequest) {
       payload.maxConcurrency ?? 6,
       queuedResults,
       (result, idx) =>
-        executeTarget(result.id, payload.targets[idx], {
-          prompt: payload.prompt,
-          expectedAnswer: payload.expectedAnswer,
-          experimentId: experiment.id,
-        })
+        executeTarget(
+          result.id,
+          payload.targets[idx],
+          {
+            prompt: payload.prompt,
+            expectedAnswer: payload.expectedAnswer,
+            experimentId: experiment.id,
+          },
+          settings
+        )
     );
 
     const completed = runOutcomes.filter(

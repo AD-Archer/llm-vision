@@ -74,13 +74,16 @@ const makeId = () =>
 const createSlot = (index: number): TargetSlotState => ({
   id: makeId(),
   label: `AI Target ${index + 1}`,
-  webhookUrl: "",
-  modelName: "",
-  method: "POST",
+  modelName: "GPT OSS",
   color: COLOR_PALETTE[index % COLOR_PALETTE.length],
   timeoutMs: 45000,
-  headers: [],
-  payloadTemplateRaw: "",
+  systemPrompt: "",
+  temperature: 0.7,
+  topP: 1.0,
+  topK: 50,
+  maxTokens: 8096,
+  frequencyPenalty: 0,
+  presencePenalty: 0,
   requestCount: 1,
 });
 
@@ -114,11 +117,11 @@ function AiLabPageInner() {
   const searchParamsString = searchParams?.toString() ?? "";
   const { user, isAdmin } = useAuth();
 
-  const [label, setLabel] = useState("Benchmark matrix");
-  const [prompt, setPrompt] = useState("Explain how our Q4 pipeline looks.");
-  const [expectedAnswer, setExpectedAnswer] = useState("Q4 pipeline summary");
-  const [notes, setNotes] = useState("Compare best of GPT vs Claude wehooks.");
-  const [maxConcurrency, setMaxConcurrency] = useState(3);
+  const [label, setLabel] = useState("PCEP reates");
+  const [prompt, setPrompt] = useState("Compare PCEP pass and fail rate.");
+  const [expectedAnswer, setExpectedAnswer] = useState("PCEP RATES");
+  const [notes, setNotes] = useState("Compare PCEP pass and fail rate.");
+  const [maxConcurrency, setMaxConcurrency] = useState(1);
   const [slots, setSlots] = useState<TargetSlotState[]>([
     createSlot(0),
     createSlot(1),
@@ -190,31 +193,7 @@ function AiLabPageInner() {
     setFeedbackStatus({});
   }, [currentExperiment]);
 
-  const availableTargets = useMemo(
-    () =>
-      slots.filter((slot) => slot.webhookUrl.trim() && slot.modelName.trim()),
-    [slots]
-  );
-
-  const headersToRecord = (slot: TargetSlotState) => {
-    if (!slot.headers.length) return undefined;
-    const entries = slot.headers
-      .map(({ key, value }) => [key.trim(), value] as const)
-      .filter(([key]) => key.length > 0);
-    if (!entries.length) return undefined;
-    return Object.fromEntries(entries);
-  };
-
-  const parsePayloadTemplate = (raw: string, slotLabel: string) => {
-    if (!raw.trim()) return undefined;
-    try {
-      return JSON.parse(raw);
-    } catch {
-      throw new Error(
-        `Target ${slotLabel}: payload template must be valid JSON.`
-      );
-    }
-  };
+  const availableTargets = useMemo(() => slots, [slots]);
 
   const fetchHistory = useCallback(async () => {
     if (!user?.id) return;
@@ -268,9 +247,7 @@ function AiLabPageInner() {
     config: Omit<SavedModelConfig, "id" | "createdAt" | "updatedAt">
   ) => {
     // Find the first empty slot or create a new one
-    const emptySlotIndex = slots.findIndex(
-      (slot) => !slot.modelName.trim() && !slot.webhookUrl.trim()
-    );
+    const emptySlotIndex = slots.findIndex((slot) => !slot.modelName.trim());
     if (emptySlotIndex >= 0) {
       // Update existing empty slot
       handleSlotChange(slots[emptySlotIndex].id, {
@@ -300,14 +277,7 @@ function AiLabPageInner() {
 
     // Filter out invalid models
     const validModels = models.filter(
-      (model) =>
-        model &&
-        typeof model.label === "string" &&
-        model.label.trim() &&
-        typeof model.webhookUrl === "string" &&
-        model.webhookUrl.trim() &&
-        typeof model.modelName === "string" &&
-        model.modelName.trim()
+      (model) => model && typeof model.label === "string" && model.label.trim()
     );
 
     if (validModels.length === 0) {
@@ -319,48 +289,24 @@ function AiLabPageInner() {
       const targetsPayload = validModels.flatMap((model) => {
         const requestCount = model.requestCount || 1;
         return Array.from({ length: requestCount }, (_, index) => {
-          const payloadTemplate = parsePayloadTemplate(
-            model.payloadTemplateRaw,
-            model.label
-          );
-
-          const headers = model.headers.reduce((acc, header) => {
-            if (header.key.trim()) {
-              acc[header.key.trim()] = header.value;
-            }
-            return acc;
-          }, {} as Record<string, string>);
-
-          const target: {
-            label: string;
-            webhookUrl: string;
-            modelName: string;
-            method?: "POST" | "PUT" | "PATCH";
-            color?: string;
-            timeoutMs?: number;
-            headers?: Record<string, string>;
-            inputTokensPerMillion?: number;
-            outputTokensPerMillion?: number;
-            payloadTemplate?: Record<string, unknown>;
-          } = {
+          const target = {
             label:
               requestCount > 1 ? `${model.label} (${index + 1})` : model.label,
-            webhookUrl: model.webhookUrl,
             modelName: model.modelName,
-            method: model.method,
             color: "#22d3ee", // Default color for quick runs
             timeoutMs: model.timeoutMs,
+            systemPrompt: model.systemPrompt,
+            temperature: model.temperature,
+            topP: model.topP,
+            topK: model.topK,
+            maxTokens: model.maxTokens,
+            frequencyPenalty: model.frequencyPenalty,
+            presencePenalty: model.presencePenalty,
+            providerUrl: model.providerUrl,
+            apiKey: model.apiKey,
             inputTokensPerMillion: model.inputTokensPerMillion,
             outputTokensPerMillion: model.outputTokensPerMillion,
           };
-
-          if (Object.keys(headers).length > 0) {
-            target.headers = headers;
-          }
-
-          if (payloadTemplate !== undefined) {
-            target.payloadTemplate = payloadTemplate;
-          }
 
           return target;
         });
@@ -428,7 +374,7 @@ function AiLabPageInner() {
           quickRunResult.durationMs
             ? `${(quickRunResult.durationMs / 1000).toFixed(2)}s`
             : "--"
-        } (${quickRunResult.successful}/${
+        } (${quickRunResult.successful}/$
           quickRunResult.totalTargets
         } successful)`
       );
@@ -451,9 +397,7 @@ function AiLabPageInner() {
     }
 
     if (!availableTargets.length) {
-      setRunError(
-        "Configure at least one target with a webhook and model name."
-      );
+      setRunError("Configure at least one target.");
       return;
     }
 
@@ -463,17 +407,20 @@ function AiLabPageInner() {
       );
       const targetsPayload = availableTargets.map((slot) => ({
         label: slot.label.trim(),
-        webhookUrl: slot.webhookUrl.trim(),
         modelName: slot.modelName.trim(),
-        method: slot.method,
         color: slot.color,
         timeoutMs: slot.timeoutMs,
-        headers: headersToRecord(slot),
-        costPer1kTokens: slot.costPer1kTokens,
-        payloadTemplate: parsePayloadTemplate(
-          slot.payloadTemplateRaw,
-          slot.label
-        ),
+        systemPrompt: slot.systemPrompt,
+        temperature: slot.temperature,
+        topP: slot.topP,
+        topK: slot.topK,
+        maxTokens: slot.maxTokens,
+        frequencyPenalty: slot.frequencyPenalty,
+        presencePenalty: slot.presencePenalty,
+        providerUrl: slot.providerUrl,
+        apiKey: slot.apiKey,
+        inputTokensPerMillion: slot.inputTokensPerMillion,
+        outputTokensPerMillion: slot.outputTokensPerMillion,
       }));
 
       setIsRunning(true);
@@ -671,6 +618,9 @@ function AiLabPageInner() {
               />
               <span className="text-xs text-slate-400">parallel slots</span>
             </div>
+            <p className="text-[10px] text-slate-500 mt-1">
+              Set to 1 for sequential execution
+            </p>
           </div>
         </div>
 
@@ -900,12 +850,6 @@ function AiLabPageInner() {
                           {result.data.promptTokens || 0} in,{" "}
                           {result.data.completionTokens || 0} out
                         </p>
-                        {result.data.costEstimate !== null && (
-                          <p>
-                            <span className="text-slate-400">Cost:</span> $
-                            {result.data.costEstimate}
-                          </p>
-                        )}
                         <div className="mt-2">
                           <p className="text-slate-400 text-xs mb-1">
                             Response:
@@ -973,6 +917,72 @@ function AiLabPageInner() {
         </div>
         <MetricsGrid experiment={currentExperiment} />
         <ResultsVisualizer experiment={currentExperiment} />
+        {currentExperiment && currentExperiment.results.length > 0 && (
+          <div className="space-y-4 mt-8 pt-8 border-t border-slate-800">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-semibold text-white">
+                Raw Responses
+              </h3>
+              <p className="text-sm text-slate-400">
+                Go to{" "}
+                <span className="font-semibold text-blue-400">
+                  Responses & Feedback
+                </span>{" "}
+                to leave feedback
+              </p>
+            </div>
+            <div className="grid gap-4">
+              {currentExperiment.results.map((result, index) => (
+                <div
+                  key={result.id}
+                  className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 shadow-lg"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-slate-400">
+                        Target #{index + 1}
+                      </p>
+                      <h4 className="text-lg font-semibold text-white">
+                        {result.label}
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        {result.modelName}
+                      </p>
+                    </div>
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        result.status === "COMPLETED"
+                          ? "bg-emerald-500/20 text-emerald-300"
+                          : result.status === "RUNNING"
+                          ? "bg-blue-500/20 text-blue-300"
+                          : result.status === "FAILED"
+                          ? "bg-red-500/20 text-red-300"
+                          : "bg-slate-700 text-slate-200"
+                      }`}
+                    >
+                      {result.status}
+                    </span>
+                  </div>
+
+                  <details className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4">
+                    <summary className="cursor-pointer text-sm text-slate-200">
+                      View response payload
+                    </summary>
+                    <pre className="mt-3 text-xs text-slate-200 whitespace-pre-wrap break-words overflow-x-auto">
+                      {formatResponsePayload(result.responsePayload)}
+                    </pre>
+                  </details>
+
+                  {result.errorMessage && (
+                    <p className="mt-3 text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg p-2">
+                      {result.errorMessage}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );
@@ -1066,19 +1076,10 @@ function AiLabPageInner() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500">Accuracy score</p>
+                    <p className="text-xs text-slate-500">Manual Accuracy</p>
                     <p className="font-semibold">
-                      {typeof result.accuracyScore === "number"
-                        ? `${(result.accuracyScore * 100).toFixed(1)}%`
-                        : "--"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Cost estimate</p>
-                    <p className="font-semibold">
-                      {result.costEstimate !== null &&
-                      result.costEstimate !== undefined
-                        ? `$${result.costEstimate.toFixed(4)}`
+                      {typeof result.reviewScore === "number"
+                        ? `${((result.reviewScore / 5) * 100).toFixed(0)}%`
                         : "--"}
                     </p>
                   </div>

@@ -10,16 +10,26 @@ export interface HeaderPair {
 export interface TargetSlotState {
   id: string;
   label: string;
-  webhookUrl: string;
   modelName: string;
-  method: "POST" | "PUT" | "PATCH";
   color: string;
   timeoutMs: number;
-  headers: HeaderPair[];
-  costPer1kTokens?: number; // no longer used
+
+  // Tuning Parameters
+  systemPrompt: string;
+  temperature: number;
+  topP: number;
+  topK: number;
+  maxTokens: number;
+  frequencyPenalty: number;
+  presencePenalty: number;
+
+  // Optional Overrides
+  providerUrl?: string;
+  apiKey?: string;
+
+  // Cost & Stats
   inputTokensPerMillion?: number;
   outputTokensPerMillion?: number;
-  payloadTemplateRaw: string;
   requestCount?: number;
 }
 
@@ -29,9 +39,7 @@ export interface AiLabResult {
   slotIndex: number;
   label: string;
   color?: string | null;
-  webhookUrl: string;
   modelName?: string | null;
-  method: string;
   status: RunStatus;
   latencyMs?: number | null;
   promptTokens?: number | null;
@@ -70,13 +78,23 @@ export interface SavedModelConfig {
   name: string;
   label: string;
   modelName: string;
-  webhookUrl: string;
-  method: "POST" | "PUT" | "PATCH";
+
+  // Tuning Parameters
+  systemPrompt: string;
+  temperature: number;
+  topP: number;
+  topK: number;
+  maxTokens: number;
+  frequencyPenalty: number;
+  presencePenalty: number;
+
+  // Optional Overrides
+  providerUrl?: string;
+  apiKey?: string;
+
   timeoutMs: number;
-  headers: HeaderPair[];
   inputTokensPerMillion?: number;
   outputTokensPerMillion?: number;
-  payloadTemplateRaw: string;
   requestCount?: number;
   createdAt: string;
   updatedAt: string;

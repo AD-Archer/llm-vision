@@ -2,19 +2,30 @@ import { NextRequest, NextResponse } from "next/server";
 import { performance } from "node:perf_hooks";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-
-const HeaderRecordSchema = z.record(z.string(), z.string());
+import { AppSetting } from "@prisma/client";
+import { invokeAiProvider } from "@/lib/aiClient";
+import { getOrCreateSettings } from "@/lib/settings";
 
 const QuickRunTargetSchema = z
   .object({
     label: z.string().min(1).max(60),
-    webhookUrl: z.string().url(),
-    modelName: z.string().min(1).max(120),
-    method: z.enum(["POST", "PUT", "PATCH"]).optional(),
+    modelName: z.string().max(120).optional(),
     color: z.string().optional(),
-    headers: HeaderRecordSchema.optional(),
     timeoutMs: z.number().int().min(1000).max(120000).optional(),
-    payloadTemplate: z.record(z.string(), z.any()).optional(),
+
+    // Tuning params
+    systemPrompt: z.string().optional(),
+    temperature: z.number().optional(),
+    topP: z.number().optional(),
+    topK: z.number().optional(),
+    maxTokens: z.number().optional(),
+    frequencyPenalty: z.number().optional(),
+    presencePenalty: z.number().optional(),
+
+    // Overrides
+    providerUrl: z.string().optional(),
+    apiKey: z.string().optional(),
+
     inputTokensPerMillion: z.number().nonnegative().optional(),
     outputTokensPerMillion: z.number().nonnegative().optional(),
   })
@@ -94,13 +105,23 @@ function extractModel(payload: unknown, fallback?: string) {
 }
 
 function extractAnswer(payload: unknown, rawText: string) {
-  console.log("[extractAnswer] Raw text:", rawText.substring(0, 200));
-  console.log(
-    "[extractAnswer] Parsed payload:",
-    JSON.stringify(payload, null, 2)
-  );
-
   if (payload && typeof payload === "object") {
+    // OpenAI format
+    const choices = (payload as Record<string, unknown>).choices;
+    if (choices && Array.isArray(choices) && choices.length > 0) {
+      const firstChoice = choices[0];
+      if (firstChoice && typeof firstChoice === "object") {
+        const message = (firstChoice as Record<string, unknown>).message;
+        if (message && typeof message === "object") {
+          const content = (message as Record<string, unknown>).content;
+          if (typeof content === "string") return content;
+        }
+        const text = (firstChoice as Record<string, unknown>).text;
+        if (typeof text === "string") return text;
+      }
+    }
+
+    // Fallback candidates
     const candidate =
       (payload as Record<string, unknown>).answer ??
       (payload as Record<string, unknown>).response ??
@@ -111,31 +132,11 @@ function extractAnswer(payload: unknown, rawText: string) {
       (payload as Record<string, unknown>).output ??
       null;
 
-    console.log("[extractAnswer] Candidate found:", candidate);
-
     if (candidate && typeof candidate === "string") {
       return candidate;
     }
-
-    // Try nested structures
-    const choices = (payload as Record<string, unknown>).choices;
-    if (choices && Array.isArray(choices) && choices.length > 0) {
-      const firstChoice = choices[0];
-      if (firstChoice && typeof firstChoice === "object") {
-        const choiceCandidate =
-          (firstChoice as Record<string, unknown>).text ??
-          (firstChoice as Record<string, unknown>).message ??
-          (firstChoice as Record<string, unknown>).content ??
-          null;
-        if (choiceCandidate && typeof choiceCandidate === "string") {
-          console.log("[extractAnswer] Found in choices:", choiceCandidate);
-          return choiceCandidate;
-        }
-      }
-    }
   }
 
-  console.log("[extractAnswer] Falling back to raw text");
   return rawText;
 }
 
@@ -181,66 +182,85 @@ async function runWithConcurrency<T>(
 async function executeQuickTarget(
   target: QuickRunTargetInput,
   prompt: string,
-  index: number
+  index: number,
+  globalSettings: AppSetting
 ): Promise<{ success: boolean; data?: QuickRunResult; error?: string }> {
   const timeout = target.timeoutMs ?? 45000;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeout);
+
+  // Determine provider URL and Key
+  const providerUrl = target.providerUrl || globalSettings.aiProviderUrl;
+  const apiKey = target.apiKey || globalSettings.aiProviderApiKey || undefined;
+
+  if (!providerUrl) {
+    return { success: false, error: "No AI Provider URL configured" };
+  }
 
   try {
     const startTs = performance.now();
 
+    // Construct OpenAI-compatible payload
+    const messages = [];
+    if (target.systemPrompt) {
+      messages.push({ role: "system", content: target.systemPrompt });
+    }
+    messages.push({ role: "user", content: prompt });
+
     const payload = {
-      ...(target.payloadTemplate ?? {}),
-      prompt,
-      chatInput: prompt, // Include chatInput for compatibility
-      experimentId: `quick-run-${Date.now()}-${index}`,
-      slotLabel: target.label,
-      model: target.modelName,
-      chatId: `quick-run-${Date.now()}`,
-      sessionId: `quick-run-session-${Date.now()}-${index}`,
-      issuedAt: new Date().toISOString(),
+      model: target.modelName || "gpt-4o",
+      messages,
+      temperature: target.temperature ?? 0.7,
+      top_p: target.topP ?? 1.0,
+      max_tokens: target.maxTokens ?? 1024,
+      // Add top_k if supported by provider (OpenAI doesn't standardly support it in top level, but some do)
+      // We'll add it if it's set, some providers might ignore it.
+      ...(target.topK ? { top_k: target.topK } : {}),
+      ...(target.frequencyPenalty
+        ? { frequency_penalty: target.frequencyPenalty }
+        : {}),
+      ...(target.presencePenalty
+        ? { presence_penalty: target.presencePenalty }
+        : {}),
     };
 
-    const headers = {
-      "Content-Type": "application/json",
-      ...(target.headers ?? {}),
-    };
-
-    const response = await fetch(target.webhookUrl, {
-      method: target.method ?? "POST",
-      headers,
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-
-    const rawText = await response.text();
-    let parsedResponse: unknown = rawText;
-    try {
-      parsedResponse = JSON.parse(rawText);
-    } catch {
-      parsedResponse = rawText;
-    }
-
-    console.log(`[executeQuickTarget] Webhook response for ${target.label}:`);
-    console.log(`[executeQuickTarget] Status: ${response.status}`);
-    console.log(`[executeQuickTarget] Raw text length: ${rawText.length}`);
-    console.log(
-      `[executeQuickTarget] Raw text preview:`,
-      rawText.substring(0, 500)
+    const result = await invokeAiProvider(
+      providerUrl,
+      apiKey,
+      payload,
+      {}, // headers
+      "POST",
+      timeout
     );
-    console.log(
-      `[executeQuickTarget] Parsed response type:`,
-      typeof parsedResponse
-    );
-    if (typeof parsedResponse === "object" && parsedResponse !== null) {
-      console.log(
-        `[executeQuickTarget] Parsed keys:`,
-        Object.keys(parsedResponse)
-      );
-    }
 
     const latencyMs = Math.round(performance.now() - startTs);
+
+    let parsedResponse: unknown = result.body;
+    // If body is string, try to parse it again just in case invokeAiProvider didn't
+    if (typeof parsedResponse === "string") {
+      try {
+        parsedResponse = JSON.parse(parsedResponse);
+      } catch {}
+    }
+
+    if (!result.ok) {
+      return {
+        success: false,
+        error: `Provider returned ${result.status}: ${
+          result.statusText || "Unknown error"
+        }`,
+        data: {
+          label: target.label,
+          modelName: target.modelName || "unknown",
+          latencyMs,
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+          costEstimate: null,
+          answer: "",
+          responsePayload: parsedResponse,
+        },
+      };
+    }
+
     const { promptTokens, completionTokens, totalTokens } =
       extractTokenCounts(parsedResponse);
 
@@ -257,33 +277,29 @@ async function executeQuickTarget(
         ? Number((inputCost + outputCost).toFixed(4))
         : null;
 
-    const extractedAnswer = extractAnswer(parsedResponse, rawText);
-    console.log(
-      `[executeQuickTarget] Final extracted answer for ${target.label}:`,
-      extractedAnswer.substring(0, 200)
+    const extractedAnswer = extractAnswer(
+      parsedResponse,
+      JSON.stringify(parsedResponse)
     );
 
-    clearTimeout(timer);
     return {
-      success: response.ok,
+      success: true,
       data: {
         label: target.label,
         modelName:
-          extractModel(parsedResponse, target.modelName) || target.modelName,
+          extractModel(parsedResponse, target.modelName || "unknown") ||
+          target.modelName ||
+          "unknown",
         latencyMs,
         promptTokens,
         completionTokens,
         totalTokens,
         costEstimate,
         answer: extractedAnswer,
-        responsePayload:
-          typeof parsedResponse === "string"
-            ? { raw: parsedResponse }
-            : parsedResponse,
+        responsePayload: parsedResponse,
       },
     };
   } catch (error) {
-    clearTimeout(timer);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error occurred",
@@ -294,12 +310,9 @@ async function executeQuickTarget(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    console.log("[quick-run] Received payload:", JSON.stringify(body, null, 2));
-
     const parsed = QuickRunPayload.safeParse(body);
 
     if (!parsed.success) {
-      console.log("[quick-run] Validation failed:", parsed.error.issues);
       return NextResponse.json(
         { error: "Invalid payload", issues: parsed.error.issues },
         { status: 400 }
@@ -307,31 +320,26 @@ export async function POST(request: NextRequest) {
     }
 
     const payload: QuickRunPayloadType = parsed.data;
-    console.log("[quick-run] Valid payload parsed successfully");
 
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
     });
     if (!user || !user.isAdmin) {
-      console.log("[quick-run] Unauthorized user:", payload.userId);
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    console.log(
-      "[quick-run] Starting execution for",
-      payload.targets.length,
-      "targets"
-    );
+    const settings = await getOrCreateSettings();
+
     const startedAt = Date.now();
 
     const results = await runWithConcurrency(
       6, // Max concurrency for quick runs
       payload.targets,
-      (target, index) => executeQuickTarget(target, payload.prompt, index)
+      (target, index) =>
+        executeQuickTarget(target, payload.prompt, index, settings)
     );
 
     const durationMs = Date.now() - startedAt;
-    console.log("[quick-run] Execution completed in", durationMs, "ms");
 
     const successful = results.filter((r) => r.success).length;
     const failed = results.filter((r) => !r.success).length;
@@ -348,10 +356,6 @@ export async function POST(request: NextRequest) {
       })),
     };
 
-    console.log(
-      "[quick-run] Sending response:",
-      JSON.stringify(response, null, 2)
-    );
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
     console.error("[ai-lab-quick-run] POST failed", error);

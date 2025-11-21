@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { TargetSlotState, SavedModelConfig } from "../types";
 
 interface Props {
@@ -11,10 +12,12 @@ interface Props {
 const STORAGE_KEY = "ai-lab-saved-models";
 
 export function SaveModelDialog({ slot, onClose, onSaved }: Props) {
+  const [name, setName] = useState(slot?.label || "");
+
   if (!slot) return null;
 
   const handleSave = () => {
-    if (!slot.label.trim()) return;
+    if (!name.trim()) return;
     const stored = localStorage.getItem(STORAGE_KEY);
     let models: SavedModelConfig[] = [];
     if (stored) {
@@ -30,16 +33,22 @@ export function SaveModelDialog({ slot, onClose, onSaved }: Props) {
         typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
           ? crypto.randomUUID()
           : Math.random().toString(36).slice(2, 10),
-      name: slot.label.trim(),
-      label: slot.label.trim(),
+      name: name.trim(),
+      label: name.trim(),
       modelName: slot.modelName,
-      webhookUrl: slot.webhookUrl,
-      method: slot.method,
+      systemPrompt: slot.systemPrompt,
+      temperature: slot.temperature,
+      topP: slot.topP,
+      topK: slot.topK,
+      maxTokens: slot.maxTokens,
+      frequencyPenalty: slot.frequencyPenalty || 0,
+      presencePenalty: slot.presencePenalty || 0,
+      providerUrl: slot.providerUrl,
+      apiKey: slot.apiKey,
       timeoutMs: slot.timeoutMs,
-      headers: slot.headers,
       inputTokensPerMillion: slot.inputTokensPerMillion,
       outputTokensPerMillion: slot.outputTokensPerMillion,
-      payloadTemplateRaw: slot.payloadTemplateRaw,
+      requestCount: slot.requestCount,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -59,6 +68,17 @@ export function SaveModelDialog({ slot, onClose, onSaved }: Props) {
           )
         </p>
 
+        <div className="mb-4">
+          <label className="block text-sm text-slate-300 mb-1">Save as</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+            placeholder="Enter a name for this configuration"
+          />
+        </div>
+
         <div className="flex gap-3 mt-4">
           <button
             onClick={onClose}
@@ -69,7 +89,7 @@ export function SaveModelDialog({ slot, onClose, onSaved }: Props) {
           <button
             onClick={handleSave}
             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50"
-            disabled={!slot.label.trim()}
+            disabled={!name.trim()}
           >
             Save
           </button>
