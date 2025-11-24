@@ -1,6 +1,7 @@
 "use client";
 
 import { TargetSlotState } from "../types";
+import { InfoTooltip } from "./InfoTooltip";
 
 interface TargetSlotCardProps {
   slot: TargetSlotState;
@@ -95,7 +96,10 @@ export function TargetSlotCard({
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-slate-300">
-          Temperature ({slot.temperature})
+          <div className="flex items-center gap-2">
+            Temperature ({slot.temperature})
+            <InfoTooltip text="Controls randomness in output. Higher values (e.g., 1.0) make output more random and creative, lower values (e.g., 0.1) make it more deterministic and focused." />
+          </div>
           <input
             type="range"
             min={0}
@@ -110,7 +114,10 @@ export function TargetSlotCard({
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-slate-300">
-          Top P ({slot.topP})
+          <div className="flex items-center gap-2">
+            Top P ({slot.topP})
+            <InfoTooltip text="Controls diversity by limiting token selection to the top percentage of probability mass. Lower values (e.g., 0.1) make output more focused, higher values (e.g., 0.9) allow more diversity." />
+          </div>
           <input
             type="range"
             min={0}
@@ -125,7 +132,10 @@ export function TargetSlotCard({
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-slate-300">
-          Top K
+          <div className="flex items-center gap-2">
+            Top K
+            <InfoTooltip text="Limits token selection to the top K most probable tokens. Lower values reduce randomness, higher values increase diversity. Set to 0 to disable." />
+          </div>
           <input
             type="number"
             min={0}
@@ -138,7 +148,10 @@ export function TargetSlotCard({
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-slate-300">
-          Max Tokens
+          <div className="flex items-center gap-2">
+            Max Tokens
+            <InfoTooltip text="Maximum number of tokens the model can generate in its response. Higher values allow longer responses but increase cost and latency." />
+          </div>
           <input
             type="number"
             min={1}
@@ -151,7 +164,10 @@ export function TargetSlotCard({
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-slate-300">
-          Frequency Penalty ({slot.frequencyPenalty})
+          <div className="flex items-center gap-2">
+            Frequency Penalty ({slot.frequencyPenalty})
+            <InfoTooltip text="Reduces repetition of frequent tokens. Positive values decrease likelihood of repeating the same words, negative values increase it." />
+          </div>
           <input
             type="range"
             min={-2}
@@ -168,7 +184,10 @@ export function TargetSlotCard({
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-slate-300">
-          Presence Penalty ({slot.presencePenalty})
+          <div className="flex items-center gap-2">
+            Presence Penalty ({slot.presencePenalty})
+            <InfoTooltip text="Reduces repetition of any tokens that have appeared. Positive values encourage talking about new topics, negative values allow more repetition." />
+          </div>
           <input
             type="range"
             min={-2}
@@ -183,7 +202,10 @@ export function TargetSlotCard({
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-slate-300">
-          Timeout (ms)
+          <div className="flex items-center gap-2">
+            Timeout (ms)
+            <InfoTooltip text="Maximum time to wait for a response from the AI model before timing out. Increase for slower models or complex requests." />
+          </div>
           <input
             type="number"
             min={1000}

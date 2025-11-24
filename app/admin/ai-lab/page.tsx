@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { PlayCircle, ShieldCheck, Sparkles, Loader2 } from "lucide-react";
+import { PlayCircle, ShieldCheck, Sparkles, Loader2, Star, X } from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/context/AuthContext";
 import { TargetSlotCard } from "./components/TargetSlotCard";
@@ -11,6 +11,7 @@ import { ResultsVisualizer } from "./components/ResultsVisualizer";
 import { HistoryPanel } from "./components/HistoryPanel";
 import { ModelManager } from "./components/ModelManager";
 import { SaveModelDialog } from "./components/SaveModelDialog";
+import { InfoTooltip } from "./components/InfoTooltip";
 import type {
   AiLabExperiment,
   TargetSlotState,
@@ -47,6 +48,8 @@ type FeedbackStatusState = Record<
   string,
   { saving?: boolean; error?: string | null; success?: string | null }
 >;
+
+type FeedbackDraft = FeedbackDraftState[string];
 
 type QuickRunResult = {
   target: string;
@@ -182,7 +185,7 @@ function AiLabPageInner() {
   const [search, setSearch] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [allUsers, setAllUsers] = useState(false);
+  const [allUsers, setAllUsers] = useState(true);
 
   const rawTab = searchParams?.get("tab");
   const currentTab: TabKey = rawTab === "responses" ? "responses" : "matrix";
@@ -556,6 +559,15 @@ function AiLabPageInner() {
     }
   };
 
+  const createEmptyDraft = (): FeedbackDraft => ({
+    score: null,
+    notes: "",
+    responseText: undefined,
+    expectedAnswer: undefined,
+    accuracyRating: null,
+    accuracyPercent: null,
+  });
+
   const handleFeedbackDraftChange = (
     resultId: string,
     patch: Partial<{
@@ -566,25 +578,45 @@ function AiLabPageInner() {
       accuracyRating?: number | null;
       accuracyPercent?: number | null;
     }>
-  ) => {
-    setFeedbackDrafts((prev) => ({
-      ...prev,
-      [resultId]: {
-        score: patch.score ?? prev[resultId]?.score ?? null,
-        notes: patch.notes ?? prev[resultId]?.notes ?? "",
-        responseText: patch.responseText ?? prev[resultId]?.responseText,
-        expectedAnswer: patch.expectedAnswer ?? prev[resultId]?.expectedAnswer,
+  ): FeedbackDraft => {
+    let updatedDraft: FeedbackDraft = createEmptyDraft();
+    setFeedbackDrafts((prev) => {
+      const previous = prev[resultId] ?? createEmptyDraft();
+      updatedDraft = {
+        ...previous,
+        score: patch.score !== undefined ? patch.score : previous.score ?? null,
+        notes: patch.notes !== undefined ? patch.notes : previous.notes ?? "",
+        responseText:
+          patch.responseText !== undefined
+            ? patch.responseText
+            : previous.responseText,
+        expectedAnswer:
+          patch.expectedAnswer !== undefined
+            ? patch.expectedAnswer
+            : previous.expectedAnswer,
         accuracyRating:
-          patch.accuracyRating ?? prev[resultId]?.accuracyRating ?? null,
+          patch.accuracyRating !== undefined
+            ? patch.accuracyRating
+            : previous.accuracyRating ?? null,
         accuracyPercent:
-          patch.accuracyPercent ?? prev[resultId]?.accuracyPercent ?? null,
-      },
-    }));
+          patch.accuracyPercent !== undefined
+            ? patch.accuracyPercent
+            : previous.accuracyPercent ?? null,
+      };
+      return {
+        ...prev,
+        [resultId]: updatedDraft,
+      };
+    });
+    return updatedDraft;
   };
 
-  const handleSaveFeedback = async (resultId: string) => {
+  const handleSaveFeedback = async (
+    resultId: string,
+    overrideDraft?: FeedbackDraft
+  ) => {
     if (!user) return;
-    const draft = feedbackDrafts[resultId];
+    const draft = overrideDraft ?? feedbackDrafts[resultId];
     if (
       !draft ||
       (draft.score === null &&
@@ -672,6 +704,11 @@ function AiLabPageInner() {
             error instanceof Error ? error.message : "Failed to save feedback",
         },
       }));
+      setFeedbackDrafts((prev) => {
+        const newPrev = { ...prev };
+        delete newPrev[resultId];
+        return newPrev;
+      });
     }
   };
 
@@ -1127,6 +1164,10 @@ function AiLabPageInner() {
             const draft = feedbackDrafts[result.id] ?? {
               score: result.reviewScore ?? null,
               notes: result.feedbackNotes ?? "",
+              responseText: result.responseText ?? undefined,
+              expectedAnswer: result.expectedAnswer ?? undefined,
+              accuracyRating: result.accuracyRating ?? null,
+              accuracyPercent: null,
             };
             const status = feedbackStatus[result.id];
             return (
@@ -1271,35 +1312,52 @@ function AiLabPageInner() {
 
                 <div className="space-y-3">
                   <div>
-                    <p className="text-sm font-semibold text-white">
-                      Rate this response
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-white">
+                        Rate this response
+                      </p>
+                      <InfoTooltip text="Rate the overall quality and helpfulness of this AI response on a scale of 1-5 stars." />
+                    </div>
                     <div className="flex flex-wrap items-center gap-2 mt-2">
                       {RATING_OPTIONS.map((option) => (
                         <button
                           key={option}
                           type="button"
-                          onClick={() => {
-                            handleFeedbackDraftChange(result.id, {
-                              score: option,
-                            });
-                            // Small delay ensures state updates before saving
-                            setTimeout(() => handleSaveFeedback(result.id), 0);
+                          onClick={(e) => {
+                            e.preventDefault();
+                            const nextDraft = handleFeedbackDraftChange(
+                              result.id,
+                              {
+                                score: option,
+                              }
+                            );
+                            handleSaveFeedback(result.id, nextDraft);
                           }}
-                          className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm border transition-colors cursor-pointer ${
                             draft.score === option
                               ? "bg-blue-500/20 border-blue-400 text-blue-100"
                               : "border-slate-600 text-slate-200 hover:border-blue-400"
                           }`}
                         >
+                          <Star
+                            size={12}
+                            fill={
+                              draft.score === option ? "currentColor" : "none"
+                            }
+                            className="pointer-events-none"
+                          />
                           {option}
                         </button>
                       ))}
                       <button
                         type="button"
-                        onClick={() =>
-                          handleFeedbackDraftChange(result.id, { score: null })
-                        }
+                        onClick={() => {
+                          const nextDraft = handleFeedbackDraftChange(
+                            result.id,
+                            { score: null }
+                          );
+                          handleSaveFeedback(result.id, nextDraft);
+                        }}
                         className="text-xs text-slate-400 underline-offset-2 hover:underline"
                       >
                         Clear
@@ -1308,36 +1366,56 @@ function AiLabPageInner() {
                   </div>
 
                   <div>
-                    <p className="text-sm font-semibold text-white">
-                      Rate accuracy
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-white">
+                        Rate accuracy
+                      </p>
+                      <InfoTooltip text="Rate how accurate this response is compared to the expected answer on a scale of 1-5." />
+                    </div>
                     <div className="flex flex-wrap items-center gap-2 mt-2">
                       {RATING_OPTIONS.map((option) => (
                         <button
                           key={`accuracy-${option}`}
                           type="button"
-                          onClick={() => {
-                            handleFeedbackDraftChange(result.id, {
-                              accuracyRating: option,
-                            });
-                            setTimeout(() => handleSaveFeedback(result.id), 0);
+                          onClick={(e) => {
+                            e.preventDefault();
+                            const nextDraft = handleFeedbackDraftChange(
+                              result.id,
+                              {
+                                accuracyRating: option,
+                              }
+                            );
+                            handleSaveFeedback(result.id, nextDraft);
                           }}
-                          className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm border transition-colors cursor-pointer ${
                             draft.accuracyRating === option
                               ? "bg-blue-500/20 border-blue-400 text-blue-100"
                               : "border-slate-600 text-slate-200 hover:border-blue-400"
                           }`}
                         >
+                          <Star
+                            size={12}
+                            fill={
+                              draft.accuracyRating === option
+                                ? "currentColor"
+                                : "none"
+                            }
+                            className="pointer-events-none"
+                          />
                           {option}
                         </button>
                       ))}
                       <button
                         type="button"
-                        onClick={() =>
-                          handleFeedbackDraftChange(result.id, {
-                            accuracyRating: null,
-                          })
-                        }
+                        onClick={() => {
+                          const nextDraft = handleFeedbackDraftChange(
+                            result.id,
+                            {
+                              accuracyRating: null,
+                            }
+                          );
+                          handleSaveFeedback(result.id, nextDraft);
+                        }}
                         className="text-xs text-slate-400 underline-offset-2 hover:underline"
                       >
                         Clear
@@ -1346,26 +1424,49 @@ function AiLabPageInner() {
                   </div>
 
                   <div>
-                    <p className="text-sm font-semibold text-white">
-                      Calculated Accuracy (%)
-                    </p>
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={draft.accuracyPercent ?? ""}
-                      onChange={(e) =>
-                        handleFeedbackDraftChange(result.id, {
-                          accuracyPercent:
-                            e.target.value === ""
-                              ? null
-                              : Number(e.target.value),
-                        })
-                      }
-                      onBlur={() => handleSaveFeedback(result.id)}
-                      placeholder="e.g., 67"
-                      className="mt-2 w-32 px-3 py-1 rounded-2xl bg-slate-950 border border-slate-800 text-slate-100 focus:ring-2 focus:ring-blue-500"
-                    />
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-white">
+                        Calculated Accuracy (%)
+                      </p>
+                      <InfoTooltip text="Manually enter the calculated accuracy percentage for this response based on comparison with the expected answer." />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={draft.accuracyPercent ?? ""}
+                        onChange={(e) =>
+                          handleFeedbackDraftChange(result.id, {
+                            accuracyPercent:
+                              e.target.value === ""
+                                ? null
+                                : Number(e.target.value),
+                          })
+                        }
+                        onBlur={() => handleSaveFeedback(result.id)}
+                        placeholder="e.g., 67"
+                        className="mt-2 w-32 px-3 py-1 rounded-2xl bg-slate-950 border border-slate-800 text-slate-100 focus:ring-2 focus:ring-blue-500"
+                      />
+                      {draft.accuracyPercent !== null && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextDraft = handleFeedbackDraftChange(
+                              result.id,
+                              {
+                                accuracyPercent: null,
+                              }
+                            );
+                            handleSaveFeedback(result.id, nextDraft);
+                          }}
+                          className="mt-2 p-1 text-slate-400 hover:text-slate-200"
+                          title="Clear accuracy percentage"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div>
