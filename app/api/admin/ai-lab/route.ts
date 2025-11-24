@@ -135,33 +135,7 @@ async function runWithConcurrency<T>(
   return results;
 }
 
-function normalizeText(text: string) {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, "")
-    .split(/\s+/)
-    .filter(Boolean);
-}
 
-function calculateAccuracy(expected?: string, actual?: string) {
-  if (!expected || !actual) {
-    return null;
-  }
-  const expectedTokens = normalizeText(expected);
-  const actualTokens = normalizeText(actual);
-  if (!expectedTokens.length || !actualTokens.length) {
-    return null;
-  }
-  const expectedSet = new Set(expectedTokens);
-  const actualSet = new Set(actualTokens);
-  let matches = 0;
-  expectedSet.forEach((token) => {
-    if (actualSet.has(token)) {
-      matches += 1;
-    }
-  });
-  return Number((matches / expectedSet.size).toFixed(2));
-}
 
 function coerceNumber(value: unknown) {
   const num = Number(value);
@@ -226,40 +200,6 @@ function extractModel(payload: unknown, fallback?: string) {
   return fallback;
 }
 
-function extractAnswer(payload: unknown, fallback: string) {
-  if (!payload) return fallback;
-  if (typeof payload === "string") {
-    return payload;
-  }
-  if (typeof payload === "object") {
-    // OpenAI format
-    const choices = (payload as Record<string, unknown>).choices;
-    if (choices && Array.isArray(choices) && choices.length > 0) {
-      const firstChoice = choices[0];
-      if (firstChoice && typeof firstChoice === "object") {
-        const message = (firstChoice as Record<string, unknown>).message;
-        if (message && typeof message === "object") {
-          const content = (message as Record<string, unknown>).content;
-          if (typeof content === "string") return content;
-        }
-        const text = (firstChoice as Record<string, unknown>).text;
-        if (typeof text === "string") return text;
-      }
-    }
-
-    const candidate =
-      (payload as Record<string, unknown>).answer ??
-      (payload as Record<string, unknown>).output ??
-      (payload as Record<string, unknown>).result ??
-      (payload as Record<string, unknown>).message ??
-      (payload as Record<string, unknown>).text ??
-      null;
-    if (typeof candidate === "string") {
-      return candidate;
-    }
-  }
-  return fallback;
-}
 
 async function executeTarget(
   resultId: string,

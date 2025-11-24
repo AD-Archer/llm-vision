@@ -155,6 +155,7 @@ function AiLabPageInner() {
 
   const [label, setLabel] = useState("PCEP reates");
   const [prompt, setPrompt] = useState("Compare PCEP pass and fail rate.");
+  const [systemPrompt, setSystemPrompt] = useState("");
   const [expectedAnswer, setExpectedAnswer] = useState("PCEP RATES");
   const [notes, setNotes] = useState("Compare PCEP pass and fail rate.");
   const [maxConcurrency, setMaxConcurrency] = useState(1);
@@ -472,7 +473,7 @@ function AiLabPageInner() {
         modelName: slot.modelName.trim(),
         color: slot.color,
         timeoutMs: slot.timeoutMs,
-        systemPrompt: slot.systemPrompt,
+        systemPrompt: systemPrompt.trim() || slot.systemPrompt,
         temperature: slot.temperature,
         topP: slot.topP,
         topK: slot.topK,
@@ -722,7 +723,17 @@ function AiLabPageInner() {
             />
           </label>
           <label className="flex flex-col gap-1 text-sm text-slate-300">
-            Prompt / instruction
+            System Prompt (optional)
+            <textarea
+              value={systemPrompt}
+              onChange={(event) => setSystemPrompt(event.target.value)}
+              placeholder="Instructions for all AI models..."
+              rows={3}
+              className="px-3 py-2 rounded-2xl bg-slate-950 border border-slate-800 text-white focus:ring-2 focus:ring-blue-500"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm text-slate-300">
+            User Prompt
             <textarea
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
@@ -1149,54 +1160,64 @@ function AiLabPageInner() {
                 </div>
                 {/* Target configuration display */}
                 {cfg && (
-                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-300">
-                    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
-                      <p className="text-slate-400">Temperature</p>
-                      <p className="text-white font-semibold">
-                        {cfg.temperature ?? "--"}
-                      </p>
-                    </div>
-                    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
-                      <p className="text-slate-400">Top P</p>
-                      <p className="text-white font-semibold">
-                        {cfg.topP ?? "--"}
-                      </p>
-                    </div>
-                    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
-                      <p className="text-slate-400">Top K</p>
-                      <p className="text-white font-semibold">
-                        {cfg.topK ?? "--"}
-                      </p>
-                    </div>
-                    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
-                      <p className="text-slate-400">Max tokens</p>
-                      <p className="text-white font-semibold">
-                        {cfg.maxTokens ?? "--"}
-                      </p>
-                    </div>
-                    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
-                      <p className="text-slate-400">Frequency penalty</p>
-                      <p className="text-white font-semibold">
-                        {cfg.frequencyPenalty ?? "--"}
-                      </p>
-                    </div>
-                    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
-                      <p className="text-slate-400">Presence penalty</p>
-                      <p className="text-white font-semibold">
-                        {cfg.presencePenalty ?? "--"}
-                      </p>
-                    </div>
-                    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
-                      <p className="text-slate-400">Timeout (ms)</p>
-                      <p className="text-white font-semibold">
-                        {cfg.timeoutMs ?? "--"}
-                      </p>
-                    </div>
-                    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
-                      <p className="text-slate-400">Request count</p>
-                      <p className="text-white font-semibold">
-                        {cfg.requestCount ?? "--"}
-                      </p>
+                  <div className="mt-3 space-y-2 text-xs text-slate-300">
+                    {cfg.systemPrompt && (
+                      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
+                        <p className="text-slate-400">System Prompt</p>
+                        <p className="text-white font-semibold mt-1 whitespace-pre-wrap">
+                          {cfg.systemPrompt}
+                        </p>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
+                        <p className="text-slate-400">Temperature</p>
+                        <p className="text-white font-semibold">
+                          {cfg.temperature ?? "--"}
+                        </p>
+                      </div>
+                      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
+                        <p className="text-slate-400">Top P</p>
+                        <p className="text-white font-semibold">
+                          {cfg.topP ?? "--"}
+                        </p>
+                      </div>
+                      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
+                        <p className="text-slate-400">Top K</p>
+                        <p className="text-white font-semibold">
+                          {cfg.topK ?? "--"}
+                        </p>
+                      </div>
+                      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
+                        <p className="text-slate-400">Max tokens</p>
+                        <p className="text-white font-semibold">
+                          {cfg.maxTokens ?? "--"}
+                        </p>
+                      </div>
+                      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
+                        <p className="text-slate-400">Frequency penalty</p>
+                        <p className="text-white font-semibold">
+                          {cfg.frequencyPenalty ?? "--"}
+                        </p>
+                      </div>
+                      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
+                        <p className="text-slate-400">Presence penalty</p>
+                        <p className="text-white font-semibold">
+                          {cfg.presencePenalty ?? "--"}
+                        </p>
+                      </div>
+                      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
+                        <p className="text-slate-400">Timeout (ms)</p>
+                        <p className="text-white font-semibold">
+                          {cfg.timeoutMs ?? "--"}
+                        </p>
+                      </div>
+                      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
+                        <p className="text-slate-400">Request count</p>
+                        <p className="text-white font-semibold">
+                          {cfg.requestCount ?? "--"}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
