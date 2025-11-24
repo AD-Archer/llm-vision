@@ -15,6 +15,7 @@ import type {
   AiLabExperiment,
   TargetSlotState,
   SavedModelConfig,
+  TargetConfig,
 } from "./types";
 
 const COLOR_PALETTE = [
@@ -33,7 +34,14 @@ type TabKey = "matrix" | "responses";
 
 type FeedbackDraftState = Record<
   string,
-  { score: number | null; notes: string }
+  {
+    score: number | null;
+    notes: string;
+    responseText?: string;
+    expectedAnswer?: string;
+    accuracyRating?: number | null;
+    accuracyPercent?: number | null;
+  }
 >;
 type FeedbackStatusState = Record<
   string,
@@ -98,6 +106,34 @@ const formatResponsePayload = (
   return JSON.stringify(payload, null, 2);
 };
 
+function extractAnswerFromPayload(payload: unknown): string | null {
+  if (!payload) return null;
+  if (typeof payload === "string") return payload;
+  if (typeof payload === "object") {
+    const choices = (payload as Record<string, unknown>).choices;
+    if (choices && Array.isArray(choices) && choices.length > 0) {
+      const firstChoice = choices[0] as Record<string, unknown> | undefined;
+      if (firstChoice) {
+        const message = firstChoice.message as
+          | Record<string, unknown>
+          | undefined;
+        if (message && typeof message.content === "string")
+          return message.content;
+        if (typeof firstChoice.text === "string") return firstChoice.text;
+      }
+    }
+    const candidate =
+      (payload as Record<string, unknown>).answer ??
+      (payload as Record<string, unknown>).output ??
+      (payload as Record<string, unknown>).result ??
+      (payload as Record<string, unknown>).message ??
+      (payload as Record<string, unknown>).text ??
+      null;
+    if (typeof candidate === "string") return candidate;
+  }
+  return null;
+}
+
 const tabs: { id: TabKey; label: string }[] = [
   { id: "matrix", label: "Benchmark Matrix" },
   { id: "responses", label: "Responses & Feedback" },
@@ -142,6 +178,11 @@ function AiLabPageInner() {
   const [feedbackDrafts, setFeedbackDrafts] = useState<FeedbackDraftState>({});
   const [feedbackStatus, setFeedbackStatus] = useState<FeedbackStatusState>({});
 
+  const [search, setSearch] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [allUsers, setAllUsers] = useState(false);
+
   const rawTab = searchParams?.get("tab");
   const currentTab: TabKey = rawTab === "responses" ? "responses" : "matrix";
 
@@ -184,6 +225,21 @@ function AiLabPageInner() {
       draftEntries[result.id] = {
         score: result.reviewScore ?? null,
         notes: result.feedbackNotes ?? "",
+        responseText:
+          result.responseText ??
+          extractAnswerFromPayload(result.responsePayload) ??
+          (typeof result.responsePayload === "string"
+            ? result.responsePayload
+            : undefined),
+        expectedAnswer:
+          result.expectedAnswer ??
+          currentExperiment.expectedAnswer ??
+          undefined,
+        accuracyRating: result.accuracyRating ?? null,
+        accuracyPercent:
+          typeof result.accuracyScore === "number"
+            ? Math.round(result.accuracyScore * 100)
+            : null,
       };
     });
     setFeedbackDrafts(draftEntries);
@@ -200,23 +256,29 @@ function AiLabPageInner() {
     setIsHistoryLoading(true);
     setHistoryError(null);
     try {
-      const response = await fetch(
-        `/api/admin/ai-lab?userId=${user.id}&limit=${MAX_TARGETS}`
-      );
-      if (!response.ok) {
-        throw new Error("Unable to load experiments");
+      const params = new URLSearchParams({
+        userId: user.id,
+        limit: "20",
+      });
+      if (search) params.append("search", search);
+      if (startDate) params.append("startDate", startDate);
+      if (endDate) params.append("endDate", endDate);
+      if (allUsers) params.append("allUsers", "true");
+
+      const response = await fetch(`/api/admin/ai-lab?${params.toString()}`);
+      if (response.ok) {
+        const data = await response.json();
+        setHistory(data);
+      } else {
+        setHistoryError("Failed to load history");
       }
-      const experiments: AiLabExperiment[] = await response.json();
-      setHistory(experiments);
-      setCurrentExperiment((prev) => prev ?? experiments[0] ?? null);
     } catch (error) {
-      setHistoryError(
-        error instanceof Error ? error.message : "Unexpected error"
-      );
+      console.error("Failed to fetch history", error);
+      setHistoryError("Failed to load history");
     } finally {
       setIsHistoryLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, search, startDate, endDate, allUsers]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -495,13 +557,26 @@ function AiLabPageInner() {
 
   const handleFeedbackDraftChange = (
     resultId: string,
-    patch: Partial<{ score: number | null; notes: string }>
+    patch: Partial<{
+      score: number | null;
+      notes: string;
+      responseText?: string;
+      expectedAnswer?: string;
+      accuracyRating?: number | null;
+      accuracyPercent?: number | null;
+    }>
   ) => {
     setFeedbackDrafts((prev) => ({
       ...prev,
       [resultId]: {
         score: patch.score ?? prev[resultId]?.score ?? null,
         notes: patch.notes ?? prev[resultId]?.notes ?? "",
+        responseText: patch.responseText ?? prev[resultId]?.responseText,
+        expectedAnswer: patch.expectedAnswer ?? prev[resultId]?.expectedAnswer,
+        accuracyRating:
+          patch.accuracyRating ?? prev[resultId]?.accuracyRating ?? null,
+        accuracyPercent:
+          patch.accuracyPercent ?? prev[resultId]?.accuracyPercent ?? null,
       },
     }));
   };
@@ -509,7 +584,15 @@ function AiLabPageInner() {
   const handleSaveFeedback = async (resultId: string) => {
     if (!user) return;
     const draft = feedbackDrafts[resultId];
-    if (!draft || (draft.score === null && !draft.notes.trim())) {
+    if (
+      !draft ||
+      (draft.score === null &&
+        !draft.notes.trim() &&
+        !draft.responseText?.trim() &&
+        !draft.expectedAnswer?.trim() &&
+        draft.accuracyRating == null &&
+        draft.accuracyPercent == null)
+    ) {
       setFeedbackStatus((prev) => ({
         ...prev,
         [resultId]: {
@@ -541,6 +624,10 @@ function AiLabPageInner() {
           resultId,
           reviewScore: draft.score,
           feedbackNotes: draft.notes,
+          responseText: draft.responseText,
+          expectedAnswer: draft.expectedAnswer,
+          accuracyRating: draft.accuracyRating,
+          accuracyPercent: draft.accuracyPercent,
         }),
       });
 
@@ -1023,6 +1110,9 @@ function AiLabPageInner() {
           )}
 
           {currentExperiment.results.map((result, index) => {
+            const cfg = (
+              currentExperiment.targetConfigs as TargetConfig[] | undefined
+            )?.[result.slotIndex];
             const draft = feedbackDrafts[result.id] ?? {
               score: result.reviewScore ?? null,
               notes: result.feedbackNotes ?? "",
@@ -1057,6 +1147,59 @@ function AiLabPageInner() {
                     {result.status}
                   </span>
                 </div>
+                {/* Target configuration display */}
+                {cfg && (
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-300">
+                    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
+                      <p className="text-slate-400">Temperature</p>
+                      <p className="text-white font-semibold">
+                        {cfg.temperature ?? "--"}
+                      </p>
+                    </div>
+                    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
+                      <p className="text-slate-400">Top P</p>
+                      <p className="text-white font-semibold">
+                        {cfg.topP ?? "--"}
+                      </p>
+                    </div>
+                    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
+                      <p className="text-slate-400">Top K</p>
+                      <p className="text-white font-semibold">
+                        {cfg.topK ?? "--"}
+                      </p>
+                    </div>
+                    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
+                      <p className="text-slate-400">Max tokens</p>
+                      <p className="text-white font-semibold">
+                        {cfg.maxTokens ?? "--"}
+                      </p>
+                    </div>
+                    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
+                      <p className="text-slate-400">Frequency penalty</p>
+                      <p className="text-white font-semibold">
+                        {cfg.frequencyPenalty ?? "--"}
+                      </p>
+                    </div>
+                    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
+                      <p className="text-slate-400">Presence penalty</p>
+                      <p className="text-white font-semibold">
+                        {cfg.presencePenalty ?? "--"}
+                      </p>
+                    </div>
+                    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
+                      <p className="text-slate-400">Timeout (ms)</p>
+                      <p className="text-white font-semibold">
+                        {cfg.timeoutMs ?? "--"}
+                      </p>
+                    </div>
+                    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
+                      <p className="text-slate-400">Request count</p>
+                      <p className="text-white font-semibold">
+                        {cfg.requestCount ?? "--"}
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-slate-200">
                   <div>
@@ -1076,10 +1219,30 @@ function AiLabPageInner() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500">Manual Accuracy</p>
+                    <p className="text-xs text-slate-500">
+                      Calculated Accuracy
+                    </p>
+                    <p className="font-semibold">
+                      {typeof result.accuracyScore === "number"
+                        ? `${(result.accuracyScore * 100).toFixed(0)}%`
+                        : "--"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Manual rating</p>
                     <p className="font-semibold">
                       {typeof result.reviewScore === "number"
                         ? `${((result.reviewScore / 5) * 100).toFixed(0)}%`
+                        : "--"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">
+                      Accuracy rating (1-5)
+                    </p>
+                    <p className="font-semibold">
+                      {typeof result.accuracyRating === "number"
+                        ? `${result.accuracyRating}`
                         : "--"}
                     </p>
                   </div>
@@ -1095,11 +1258,13 @@ function AiLabPageInner() {
                         <button
                           key={option}
                           type="button"
-                          onClick={() =>
+                          onClick={() => {
                             handleFeedbackDraftChange(result.id, {
                               score: option,
-                            })
-                          }
+                            });
+                            // Small delay ensures state updates before saving
+                            setTimeout(() => handleSaveFeedback(result.id), 0);
+                          }}
                           className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
                             draft.score === option
                               ? "bg-blue-500/20 border-blue-400 text-blue-100"
@@ -1121,6 +1286,92 @@ function AiLabPageInner() {
                     </div>
                   </div>
 
+                  <div>
+                    <p className="text-sm font-semibold text-white">
+                      Rate accuracy
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      {RATING_OPTIONS.map((option) => (
+                        <button
+                          key={`accuracy-${option}`}
+                          type="button"
+                          onClick={() => {
+                            handleFeedbackDraftChange(result.id, {
+                              accuracyRating: option,
+                            });
+                            setTimeout(() => handleSaveFeedback(result.id), 0);
+                          }}
+                          className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                            draft.accuracyRating === option
+                              ? "bg-blue-500/20 border-blue-400 text-blue-100"
+                              : "border-slate-600 text-slate-200 hover:border-blue-400"
+                          }`}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleFeedbackDraftChange(result.id, {
+                            accuracyRating: null,
+                          })
+                        }
+                        className="text-xs text-slate-400 underline-offset-2 hover:underline"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-semibold text-white">
+                      Calculated Accuracy (%)
+                    </p>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={draft.accuracyPercent ?? ""}
+                      onChange={(e) =>
+                        handleFeedbackDraftChange(result.id, {
+                          accuracyPercent:
+                            e.target.value === ""
+                              ? null
+                              : Number(e.target.value),
+                        })
+                      }
+                      onBlur={() => handleSaveFeedback(result.id)}
+                      placeholder="e.g., 67"
+                      className="mt-2 w-32 px-3 py-1 rounded-2xl bg-slate-950 border border-slate-800 text-slate-100 focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-semibold text-white">
+                      Raw response (not editable)
+                    </p>
+                    <pre className="mt-2 text-xs text-slate-200 whitespace-pre-wrap break-words overflow-x-auto bg-slate-950/70 border border-slate-800 rounded-2xl p-3">
+                      {formatResponsePayload(result.responsePayload)}
+                    </pre>
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-semibold text-white">
+                      Expected response (optional)
+                    </p>
+                    <textarea
+                      value={draft.expectedAnswer ?? ""}
+                      onChange={(event) =>
+                        handleFeedbackDraftChange(result.id, {
+                          expectedAnswer: event.target.value,
+                        })
+                      }
+                      placeholder="Expected response used to compute calculated accuracy..."
+                      rows={3}
+                      className="mt-2 w-full px-3 py-2 rounded-2xl bg-slate-950 border border-slate-800 text-slate-100 focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
                   <div>
                     <p className="text-sm font-semibold text-white">
                       Written feedback
@@ -1203,6 +1454,15 @@ function AiLabPageInner() {
             onRefresh={fetchHistory}
             onSelect={handleSelectExperiment}
             onDelete={handleDeleteExperiment}
+            search={search}
+            onSearchChange={setSearch}
+            startDate={startDate}
+            onStartDateChange={setStartDate}
+            endDate={endDate}
+            onEndDateChange={setEndDate}
+            allUsers={allUsers}
+            onAllUsersChange={setAllUsers}
+            isAdmin={isAdmin}
           />
           {historyError && (
             <p className="text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-2xl px-4 py-3">

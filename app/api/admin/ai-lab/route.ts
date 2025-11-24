@@ -57,8 +57,12 @@ const CreateExperimentPayload = z.object({
 
 const QuerySchema = z.object({
   userId: z.string().cuid(),
-  limit: z.coerce.number().int().min(1).max(25).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
   experimentId: z.string().cuid().optional(),
+  search: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  allUsers: z.enum(["true", "false"]).optional(),
 });
 
 const FeedbackPayload = z
@@ -67,12 +71,22 @@ const FeedbackPayload = z
     resultId: z.string().cuid(),
     reviewScore: z.number().int().min(1).max(5).nullable().optional(),
     feedbackNotes: z.string().max(2000).nullable().optional(),
+    responseText: z.string().max(10000).nullable().optional(),
+    expectedAnswer: z.string().max(10000).nullable().optional(),
+    accuracyRating: z.number().int().min(1).max(5).nullable().optional(),
+    accuracyPercent: z.number().min(0).max(100).nullable().optional(),
   })
   .refine(
     (data) =>
-      data.reviewScore !== undefined || data.feedbackNotes !== undefined,
+      data.reviewScore !== undefined ||
+      data.feedbackNotes !== undefined ||
+      data.responseText !== undefined ||
+      data.expectedAnswer !== undefined ||
+      data.accuracyRating !== undefined ||
+      data.accuracyPercent !== undefined,
     {
-      message: "reviewScore or feedbackNotes required",
+      message:
+        "reviewScore, feedbackNotes, expectedAnswer, responseText, accuracyRating, or accuracyPercent required",
       path: ["reviewScore"],
     }
   );
@@ -338,10 +352,6 @@ async function executeTarget(
 
     const { promptTokens, completionTokens, totalTokens } =
       extractTokenCounts(parsedResponse);
-    const accuracyScore = calculateAccuracy(
-      params.expectedAnswer,
-      extractAnswer(parsedResponse, JSON.stringify(parsedResponse))
-    );
     const speedScore = Number(Math.max(0, 1 - latencyMs / timeout).toFixed(2));
     const inputCost =
       promptTokens !== null && target.inputTokensPerMillion !== undefined
@@ -364,7 +374,7 @@ async function executeTarget(
         completionTokens,
         promptTokens,
         totalTokens,
-        accuracyScore,
+        // accuracyScore intentionally not set here — it should be provided manually via PATCH
         speedScore,
         costEstimate,
         completedAt: new Date(),
@@ -410,8 +420,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { userId, limit, experimentId } = parsed.data;
-    const limitValue = limit ?? 5;
+    const {
+      userId,
+      limit,
+      experimentId,
+      search,
+      startDate,
+      endDate,
+      allUsers,
+    } = parsed.data;
+    const limitValue = limit ?? 20;
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user || !user.isAdmin) {
@@ -423,6 +441,7 @@ export async function GET(request: NextRequest) {
         where: { id: experimentId },
         include: {
           results: { orderBy: { slotIndex: "asc" } },
+          user: { select: { email: true } },
         },
       });
 
@@ -433,12 +452,41 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(experiment);
     }
 
+    const where: Prisma.AiExperimentWhereInput = {};
+
+    if (allUsers !== "true") {
+      where.userId = userId;
+    }
+
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) where.createdAt.gte = new Date(startDate);
+      if (endDate) where.createdAt.lte = new Date(endDate);
+    }
+
+    if (search) {
+      where.OR = [
+        { label: { contains: search, mode: "insensitive" } },
+        { prompt: { contains: search, mode: "insensitive" } },
+        { notes: { contains: search, mode: "insensitive" } },
+        {
+          results: {
+            some: {
+              feedbackNotes: { contains: search, mode: "insensitive" },
+            },
+          },
+        },
+        { user: { email: { contains: search, mode: "insensitive" } } },
+      ];
+    }
+
     const experiments = await prisma.aiExperiment.findMany({
-      where: { userId },
+      where,
       orderBy: { createdAt: "desc" },
       take: limitValue,
       include: {
         results: { orderBy: { slotIndex: "asc" } },
+        user: { select: { email: true } },
       },
     });
 
@@ -529,6 +577,22 @@ export async function POST(request: NextRequest) {
       (outcome) => outcome.status === AiRunStatus.COMPLETED
     ).length;
 
+    // Compute calculated accuracy over last 10 results and update experiment accordingly
+    const recentResultsForExperiment = await prisma.aiExperimentResult.findMany(
+      {
+        where: { experimentId: experiment.id, accuracyScore: { not: null } },
+        orderBy: { completedAt: "desc" },
+        take: 10,
+      }
+    );
+    const avgLast10 =
+      recentResultsForExperiment.length > 0
+        ? recentResultsForExperiment.reduce(
+            (sum, r) => sum + (r.accuracyScore ?? 0),
+            0
+          ) / recentResultsForExperiment.length
+        : null;
+
     const final = await prisma.aiExperiment.update({
       where: { id: experiment.id },
       data: {
@@ -539,6 +603,7 @@ export async function POST(request: NextRequest) {
             : AiExperimentStatus.FAILED,
         durationMs: Date.now() - startedAt,
         completedAt: new Date(),
+        calculatedAccuracyLast10: avgLast10,
       },
       include: {
         results: { orderBy: { slotIndex: "asc" } },
@@ -567,10 +632,19 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const { userId, resultId, reviewScore, feedbackNotes } = parsed.data;
+    const {
+      userId,
+      resultId,
+      reviewScore,
+      feedbackNotes,
+      responseText,
+      expectedAnswer,
+      accuracyRating,
+      accuracyPercent,
+    } = parsed.data;
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user || !user.isAdmin) {
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -583,7 +657,8 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Result not found" }, { status: 404 });
     }
 
-    if (resultRecord.experiment.userId !== userId) {
+    // Allow admins to edit any result, otherwise ensure the requestor owns the experiment
+    if (!user.isAdmin && resultRecord.experiment.userId !== userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -595,6 +670,22 @@ export async function PATCH(request: NextRequest) {
       const trimmed = feedbackNotes?.trim() ?? "";
       updateData.feedbackNotes = trimmed.length ? trimmed : null;
     }
+    if (responseText !== undefined) {
+      const trimmed = responseText?.trim() ?? "";
+      updateData.responseText = trimmed.length ? trimmed : null;
+    }
+    if (expectedAnswer !== undefined) {
+      const trimmed = expectedAnswer?.trim() ?? "";
+      updateData.expectedAnswer = trimmed.length ? trimmed : null;
+    }
+    if (accuracyRating !== undefined) {
+      updateData.accuracyRating = accuracyRating ?? null;
+    }
+    if (accuracyPercent !== undefined) {
+      const num = accuracyPercent;
+      updateData.accuracyScore =
+        num !== null && num !== undefined ? Number(num) / 100 : null;
+    }
 
     if (!Object.keys(updateData).length) {
       return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
@@ -604,6 +695,29 @@ export async function PATCH(request: NextRequest) {
       where: { id: resultId },
       data: updateData,
     });
+
+    // Recompute experiment-level calculatedAccuracyLast10
+    try {
+      const recentResults = await prisma.aiExperimentResult.findMany({
+        where: {
+          experimentId: resultRecord.experiment.id,
+          accuracyScore: { not: null },
+        },
+        orderBy: { completedAt: "desc" },
+        take: 10,
+      });
+      const newAvgLast10 =
+        recentResults.length > 0
+          ? recentResults.reduce((sum, r) => sum + (r.accuracyScore ?? 0), 0) /
+            recentResults.length
+          : null;
+      await prisma.aiExperiment.update({
+        where: { id: resultRecord.experiment.id },
+        data: { calculatedAccuracyLast10: newAvgLast10 },
+      });
+    } catch (err) {
+      console.error("Failed to update experiment average accuracy:", err);
+    }
 
     return NextResponse.json(updated);
   } catch (error) {

@@ -47,7 +47,9 @@ export function ResultsVisualizer({ experiment }: ResultsVisualizerProps) {
     name: result.label,
     latency: result.latencyMs ?? 0,
     accuracy:
-      typeof result.reviewScore === "number"
+      typeof result.accuracyScore === "number"
+        ? Number((result.accuracyScore * 100).toFixed(1))
+        : typeof result.reviewScore === "number"
         ? Number(((result.reviewScore / 5) * 100).toFixed(1))
         : null,
     color: result.color ?? FALLBACK_COLORS[index % FALLBACK_COLORS.length],

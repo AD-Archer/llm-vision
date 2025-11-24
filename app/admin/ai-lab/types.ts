@@ -33,6 +33,25 @@ export interface TargetSlotState {
   requestCount?: number;
 }
 
+export interface TargetConfig {
+  label: string;
+  modelName?: string;
+  color?: string;
+  timeoutMs?: number;
+  systemPrompt?: string;
+  temperature?: number;
+  topP?: number;
+  topK?: number;
+  maxTokens?: number;
+  frequencyPenalty?: number;
+  presencePenalty?: number;
+  providerUrl?: string;
+  apiKey?: string;
+  inputTokensPerMillion?: number;
+  outputTokensPerMillion?: number;
+  requestCount?: number;
+}
+
 export interface AiLabResult {
   id: string;
   experimentId: string;
@@ -54,11 +73,15 @@ export interface AiLabResult {
   errorMessage?: string | null;
   reviewScore?: number | null;
   feedbackNotes?: string | null;
+  responseText?: string | null;
+  expectedAnswer?: string | null;
+  accuracyRating?: number | null;
 }
 
 export interface AiLabExperiment {
   id: string;
   userId: string;
+  user?: { email: string };
   label: string;
   prompt: string;
   expectedAnswer?: string | null;
@@ -69,7 +92,8 @@ export interface AiLabExperiment {
   durationMs?: number | null;
   startedAt: string;
   completedAt?: string | null;
-  targetConfigs?: unknown;
+  targetConfigs?: TargetConfig[] | unknown;
+  calculatedAccuracyLast10?: number | null;
   results: AiLabResult[];
 }
 

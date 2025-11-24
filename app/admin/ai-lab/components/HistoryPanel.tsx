@@ -10,6 +10,15 @@ interface HistoryPanelProps {
   onSelect: (experiment: AiLabExperiment) => void;
   onRefresh: () => void;
   onDelete: (experimentId: string) => void;
+  search: string;
+  onSearchChange: (value: string) => void;
+  startDate: string;
+  onStartDateChange: (value: string) => void;
+  endDate: string;
+  onEndDateChange: (value: string) => void;
+  allUsers: boolean;
+  onAllUsersChange: (value: boolean) => void;
+  isAdmin: boolean;
 }
 
 const StatusStyles: Record<string, string> = {
@@ -30,25 +39,69 @@ export function HistoryPanel({
   onRefresh,
   onDelete,
   selectedExperimentId,
+  search,
+  onSearchChange,
+  startDate,
+  onStartDateChange,
+  endDate,
+  onEndDateChange,
+  allUsers,
+  onAllUsersChange,
+  isAdmin,
 }: HistoryPanelProps) {
   return (
     <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 shadow-xl">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-slate-400">
-            Recent runs
-          </p>
-          <h4 className="text-lg font-semibold text-white">
-            Experiment history
-          </h4>
+      <div className="flex flex-col gap-4 mb-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-400">
+              Recent runs
+            </p>
+            <h4 className="text-lg font-semibold text-white">
+              Experiment history
+            </h4>
+          </div>
+          <button
+            onClick={onRefresh}
+            disabled={isLoading}
+            className="px-3 py-1 text-xs rounded-full border border-slate-600 text-slate-200 hover:border-blue-500 hover:text-blue-200 disabled:opacity-40"
+          >
+            {isLoading ? "Updating..." : "Refresh"}
+          </button>
         </div>
-        <button
-          onClick={onRefresh}
-          disabled={isLoading}
-          className="px-3 py-1 text-xs rounded-full border border-slate-600 text-slate-200 hover:border-blue-500 hover:text-blue-200 disabled:opacity-40"
-        >
-          {isLoading ? "Updating..." : "Refresh"}
-        </button>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+          <input
+            type="text"
+            placeholder="Search..."
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+          />
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => onStartDateChange(e.target.value)}
+            className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+          />
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => onEndDateChange(e.target.value)}
+            className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+          />
+          {isAdmin && (
+            <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={allUsers}
+                onChange={(e) => onAllUsersChange(e.target.checked)}
+                className="rounded border-slate-700 bg-slate-800 text-blue-500 focus:ring-blue-500"
+              />
+              Show all users
+            </label>
+          )}
+        </div>
       </div>
 
       {experiments.length === 0 ? (
@@ -72,6 +125,11 @@ export function HistoryPanel({
                   <p className="text-sm font-semibold text-white">
                     {experiment.label}
                   </p>
+                  {experiment.user?.email && (
+                    <p className="text-xs text-blue-400 mb-0.5">
+                      {experiment.user.email}
+                    </p>
+                  )}
                   <p className="text-xs text-slate-400">
                     Started {formatTimestamp(experiment.startedAt)}
                   </p>

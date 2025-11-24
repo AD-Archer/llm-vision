@@ -135,6 +135,7 @@ model AiExperiment {
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
   targetConfigs  Json?
+  calculatedAccuracyLast10 Float?
   results        AiExperimentResult[]
 }
 
@@ -154,6 +155,7 @@ model AiExperimentResult {
   completionTokens Int?
   totalTokens      Int?
   accuracyScore    Float?
+  accuracyRating   Int? // Manual accuracy rating 1-5
   speedScore       Float?
   costEstimate     Float?
   startedAt        DateTime?
@@ -162,6 +164,8 @@ model AiExperimentResult {
   errorMessage     String?
   reviewScore      Int?
   feedbackNotes    String?
+  responseText     String? // User-editable actual response text
+  expectedAnswer   String? // Optional per-result expected answer
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 }

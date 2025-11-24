@@ -48,6 +48,26 @@ export function MetricsGrid({ experiment }: MetricsGridProps) {
         )
       : null;
 
+  // Calculate accuracy based on computed accuracy field (use last 10 results)
+  const sortedByCompleted = results.slice().sort((a, b) => {
+    const aTime = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+    const bTime = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+    return bTime - aTime;
+  });
+  const last10 = sortedByCompleted.slice(0, 10);
+  const calcAccuracies = last10
+    .map((result) => result.accuracyScore)
+    .filter(
+      (score): score is number => typeof score === "number" && score >= 0
+    );
+  const computedAvgCalculatedAccuracy =
+    calcAccuracies.length > 0
+      ? calcAccuracies.reduce((sum, score) => sum + score, 0) /
+        calcAccuracies.length
+      : null;
+  const avgCalculatedAccuracy =
+    experiment.calculatedAccuracyLast10 ?? computedAvgCalculatedAccuracy;
+
   const totalTokens = results.reduce((sum, result) => {
     return sum + (result.totalTokens ?? 0);
   }, 0);
@@ -63,6 +83,19 @@ export function MetricsGrid({ experiment }: MetricsGridProps) {
         </p>
         <p className="text-xs text-slate-500 mt-1">
           Based on manual feedback scores
+        </p>
+      </div>
+      <div className="bg-slate-900/60 border border-slate-700 rounded-2xl p-4 shadow-lg">
+        <p className="text-xs uppercase tracking-wide text-slate-400">
+          Calculated Accuracy (last 10)
+        </p>
+        <p className="text-3xl font-bold text-white mt-2">
+          {avgCalculatedAccuracy !== null
+            ? percentFormatter.format(avgCalculatedAccuracy)
+            : "--"}
+        </p>
+        <p className="text-xs text-slate-500 mt-1">
+          Based on expected vs actual text overlap
         </p>
       </div>
       <div className="bg-slate-900/60 border border-slate-700 rounded-2xl p-4 shadow-lg">
